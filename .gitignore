@@ -1,0 +1,58 @@
+# Dependensi / build
+node_modules/
+vendor/
+dist/
+build/
+release/
+
+# Environment & rahasia
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+config.local.php
+koneksi.local.php
+
+# Backup & berkas sementara
+*.bak
+*.tmp
+*.temp
+*.log
+*.sql
+*.sql.gz
+dump*.sql
+index-portal.php.bak
+
+# Cache & sesi PHP
+/cache/
+/sessions/
+/session/
+/tmp/
+
+# Unggahan pengguna
+/uploads/
+upload/siswa/
+upload/guru/
+!uploads/.gitkeep
+
+# Berkas OS & editor
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*~
+
+# Arsip
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
