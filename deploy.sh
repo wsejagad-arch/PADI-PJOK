@@ -52,9 +52,13 @@ info "PHP versi: $PHP_VER"
 
 apt-get install -y -qq \
   nginx mariadb-server \
-  "php${PHP_VER}-fpm" "php${PHP_VER}-cli" "php${PHP_VER}-mysql" \
-  "php${PHP_VER}-curl" "php${PHP_VER}-mbstring" "php${PHP_VER}-xml" \
-  "php${PHP_VER}-zip" "php${PHP_VER}-gd" "php${PHP_VER}-json" >/dev/null
+  "php${PHP_VER}-fpm" "php${PHP_VER}-cli" "php${PHP_VER}-mysql" >/dev/null
+# Ekstensi opsional: pasang satu per satu agar paket yang tidak tersedia
+# (mis. php8.2-json yang sudah menyatu ke core di Debian 12) tidak menggagalkan seluruh deploy.
+for EXT in curl mbstring xml zip gd intl json; do
+  apt-get install -y -qq "php${PHP_VER}-${EXT}" >/dev/null 2>&1 || \
+    warn "ekstensi php${PHP_VER}-${EXT} tidak tersedia (dilewati)."
+done
 info "Nginx, MariaDB, PHP-FPM terpasang."
 
 systemctl enable --now nginx mariadb >/dev/null 2>&1 || true
