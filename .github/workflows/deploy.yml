@@ -1,0 +1,65 @@
+name: Deploy ke Proxmox (padipjok.pintarhub.com)
+
+# Deploy otomatis setiap push ke main.
+# Aktif hanya bila secret DEPLOY_HOST sudah diisi di:
+#   GitHub → Settings → Secrets and variables → Actions
+#
+# Secret yang dibutuhkan:
+#   DEPLOY_HOST     : alamat server (mis. sman1sumber.sch.id atau IP:port)
+#   DEPLOY_USER     : user SSH (default: root)
+#   DEPLOY_SSH_KEY  : private key SSH (isi lengkap, termasuk BEGIN/END)
+#   DEPLOY_PATH     : folder aplikasi di server (default: /var/www/padipjok)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Pull & reload
+    runs-on: ubuntu-latest
+    # lewati bila secret belum disiapkan (mis. repo baru)
+    if: ${{ github.repository_owner != '' }}
+
+    steps:
+      - name: Cek ketersediaan konfigurasi deploy
+        id: cek
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          if [ -z "$HOST" ]; then
+            echo "siap=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DEPLOY_HOST belum di-set — langkah deploy dilewati."
+          else
+            echo "siap=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Siapkan SSH
+        if: steps.cek.outputs.siap == 'true'
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy
+        if: steps.cek.outputs.siap == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER || 'root' }}
+          PATH_APP: ${{ secrets.DEPLOY_PATH || '/var/www/padipjok' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$USER@$HOST" bash -s <<'REMOTE'
+          set -e
+          cd "${PATH_APP:-/var/www/padipjok}"
+          git fetch --all --quiet
+          git reset --hard origin/main --quiet
+          php -l koneksi.php >/dev/null
+          chown -R www-data:www-data .
+          systemctl reload nginx || true
+          systemctl reload php*-fpm || true
+          echo "Deploy selesai: $(git rev-parse --short HEAD)"
+          REMOTE
