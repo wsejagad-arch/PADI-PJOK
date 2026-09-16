@@ -1,14 +1,24 @@
 name: Deploy ke Proxmox (padipjok.pintarhub.com)
 
-# Deploy otomatis setiap push ke main.
-# Aktif hanya bila secret DEPLOY_HOST sudah diisi di:
-#   GitHub → Settings → Secrets and variables → Actions
+# ⚠️ PENTING (16 Sep 2026): situs PRODUKSI saat ini DILAYANI PC PENGEMBANGAN
+#    (Apache XAMPP + Cloudflare Tunnel), BUKAN Proxmox. Agar perubahan tampil,
+#    cukup pastikan `cloudflared` hidup di PC itu — lihat HISTORY.md bagian 9.
+#    Workflow ini hanya berguna bila kelak pindah ke server SSH terpisah.
 #
-# Secret yang dibutuhkan:
+# Deploy otomatis setiap push ke main.
+# Bila secret belum lengkap, workflow ini GAGAL dengan pesan jelas
+# (dulu hijau padahal langkah deploy dilewati → produksi tampak tidak berubah).
+#
+# Secret yang dibutuhkan (WAJIB ketiganya):
 #   DEPLOY_HOST     : alamat server (mis. sman1sumber.sch.id atau IP:port)
-#   DEPLOY_USER     : user SSH (default: root)
+#   DEPLOY_USER     : user SSH (mis. root)
 #   DEPLOY_SSH_KEY  : private key SSH (isi lengkap, termasuk BEGIN/END)
+# Opsional:
 #   DEPLOY_PATH     : folder aplikasi di server (default: /var/www/padipjok)
+#   DEPLOY_URL      : URL untuk verifikasi setelah deploy (opsional)
+#
+# Menonaktifkan workflow ini sementara:
+#   gh workflow disable "Deploy ke Proxmox (padipjok.pintarhub.com)"
 
 on:
   push:
@@ -19,21 +29,35 @@ jobs:
   deploy:
     name: Pull & reload
     runs-on: ubuntu-latest
-    # lewati bila secret belum disiapkan (mis. repo baru)
-    if: ${{ github.repository_owner != '' }}
+    # CATATAN: situs produksi padipjok.pintarhub.com dilayani PC pengembangan
+    # (Apache XAMPP) lewat Cloudflare Tunnel — bukan Proxmox. Lihat HISTORY.md.
+    # Job ini hanya berguna bila server SSH terpisah benar-benar dipakai.
 
     steps:
       - name: Cek ketersediaan konfigurasi deploy
         id: cek
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
-          if [ -z "$HOST" ]; then
+          # Wajib: HOST + USER + KEY. Bila salah satu kosong, GAGALKAN (jangan
+          # lagi "sukses palsu" seperti sebelumnya — dulu job hijau padahal
+          # langkah deploy dilewati, sehingga produksi tampak tidak berubah).
+          kurang=""
+          [ -z "$HOST" ] && kurang="$kurang DEPLOY_HOST"
+          [ -z "$USER" ] && kurang="$kurang DEPLOY_USER"
+          [ -z "$KEY" ]  && kurang="$kurang DEPLOY_SSH_KEY"
+
+          if [ -n "$kurang" ]; then
+            echo "::error::Secret belum diisi:$kurang — deploy TIDAK dijalankan."
+            echo "::error::Isi di GitHub → Settings → Secrets and variables → Actions."
             echo "siap=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::DEPLOY_HOST belum di-set — langkah deploy dilewati."
-          else
-            echo "siap=true" >> "$GITHUB_OUTPUT"
+            exit 1
           fi
+
+          echo "siap=true" >> "$GITHUB_OUTPUT"
+          echo "Konfigurasi lengkap: host=$HOST user=$USER"
 
       - name: Siapkan SSH
         if: steps.cek.outputs.siap == 'true'
@@ -63,3 +87,12 @@ jobs:
           systemctl reload php*-fpm || true
           echo "Deploy selesai: $(git rev-parse --short HEAD)"
           REMOTE
+
+      - name: Verifikasi hasil deploy
+        if: steps.cek.outputs.siap == 'true' && secrets.DEPLOY_URL != ''
+        env:
+          URL: ${{ secrets.DEPLOY_URL }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+          echo "HTTP $code dari $URL"
+          [ "$code" = "200" ] || { echo "::error::Situs membalas $code setelah deploy."; exit 1; }

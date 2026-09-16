@@ -16,7 +16,8 @@ verifikasinya. Ditulis agar sesi berikutnya tidak perlu mengulang penyelidikan.
 
 | # | Tanggal | Commit | Perubahan | Status |
 |---|---|---|---|---|
-| 5 | 16 Sep 2026 | (lokal) | Pulihkan tampilan login satu halaman (tab Guru/Siswa, form, banner mode siswa, footer) | âœ… terverifikasi lokal |
+| 6 | 16 Sep 2026 | `6233f62` | ✅ **Produksi diperbaiki: tampilan login baru LIVE** (sebab = `cloudflared` mati) + gate secret `deploy.yml` diperbaiki | ✅ terverifikasi publik |
+| 5 | 16 Sep 2026 | `6233f62` | Pulihkan tampilan login satu halaman (tab Guru/Siswa, form, banner mode siswa, footer) | ✅ terverifikasi lokal |
 | 4 | 16 Sep 2026 | `6af66f9` | Kembalikan halaman utama ke tampilan awal (header sambutan + tombol Login Guru/Siswa) | âœ… terverifikasi |
 | 3 | 16 Sep 2026 | `f8cf6a9` | Perbaiki `deploy.sh` agar satu paket hilang tidak menggagalkan deploy | âœ… terverifikasi |
 | 2 | 16 Sep 2026 | `8411c0a` | Cegah halaman putih setelah login (guard per-peran, sesi berbagi, tahan DB mati) | âœ… terverifikasi |
@@ -168,7 +169,7 @@ if (empty($conn)) {
 
 ---
 
-## 4. Pemulihan tampilan login satu halaman â€” 16 Sep 2026 (lokal, belum di-commit)
+## 4. Pemulihan tampilan login satu halaman — commit `6233f62` (16 Sep 2026)
 
 ### Permintaan
 Kembalikan **tampilan login** seperti "pertama kali sebelum dirombak": satu halaman login
@@ -212,7 +213,83 @@ yang dahulu diganti tombol tautan.
 
 ---
 
-## 5. Berkas baru & berkas kunci
+## 5. PENYEBAB SEBENARNYA "server belum berubah" — 16 Sep 2026
+
+### Gejala
+Setelah `git push` (`6233f62`), situs `padipjok.pintarhub.com` **masih menampilkan versi lama**,
+padahal workflow deploy GitHub Actions hijau.
+
+### Akar masalah (DUA hal — bukan kode aplikasi)
+
+**1. Situs produksi ternyata DILAYANI PC PENGEMBANGAN ini, bukan Proxmox.**
+Yang membuat domain publik tidak berubah bukan "server tertinggal versi", melainkan
+proses **`cloudflared` (Cloudflare Tunnel) MATI** — sehingga Cloudflare menyajikan salinan lama.
+
+Bukti seluruh jalur masuk ke server tertutup:
+
+| Jalur uji | Hasil |
+|---|---|
+| `ping 192.168.18.39` | 100% loss — PC sendiri balas *Destination host unreachable* |
+| ARP `192.168.18.x` | hanya router (`192.168.18.1`), tak ada host lain |
+| `192.168.18.39` port 22/8006/80/443 | semua timeout |
+| `8.215.13.99` port 22 | timeout |
+| Tailscale peer | hanya `pintarhub` — offline 47 hari |
+| DNS `proxmox` / `pve` | tidak ada |
+| Tab browser `192.168.18.39:8006` | hanya `chrome-error://chromewebdata` |
+
+Sesudah `cloudflared` dihidupkan, ukuran halaman langsung berubah
+**10.136 B → 23.943 B** (identik dengan berkas lokal) → terbukti origin = Apache XAMPP PC ini.
+
+**2. Workflow deploy "SUKSES PALSU".**
+`gh secret list` **kosong** (tak ada `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`DEPLOY_PATH`),
+sehingga langkah deploy dilewati tetapi job tetap hijau. Log membuktikan:
+`::notice::DEPLOY_HOST belum di-set — langkah deploy dilewati.`
+Job selesai hanya **4–7 detik** (deploy sungguhan butuh menit-an).
+
+### Perbaikan
+
+**A. Produksi (langsung, tanpa deploy):** hidupkan tunnel di PC pengembangan.
+
+```powershell
+$cf  = 'C:\Program Files (x86)\cloudflared\cloudflared.exe'
+$tok = (Get-Content 'C:\Users\sman1\.cloudflared\token-padi-pjok.txt' -Raw).Trim()
+Start-Process $cf -ArgumentList @('tunnel','--no-autoupdate','run','--token',$tok) -WindowStyle Hidden
+```
+
+**B. `.github/workflows/deploy.yml` — gate secret diperbaiki:**
+- Ketiga secret (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`) kini **WAJIB**; bila ada
+  yang kosong → `::error::` + **exit 1** (job MERAH), bukan hijau.
+- Ditambah langkah **"Verifikasi hasil deploy"** (opsional, lewat secret `DEPLOY_URL`):
+  curl URL, gagal bila bukan HTTP 200.
+- Header berkas diberi peringatan bahwa produksi kini dilayani PC pengembangan
+  + cara menonaktifkan sementara: `gh workflow disable "Deploy ke Proxmox (padipjok.pintarhub.com)"`.
+
+### Verifikasi
+
+| uji | hasil |
+|---|---|
+| YAML `deploy.yml` | valid; 4 langkah: Cek → Siapkan SSH → Deploy → Verifikasi |
+| gate tanpa secret | **GAGAL** (kurang: DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY) ✅ |
+| gate hanya `DEPLOY_HOST` | **GAGAL** (kurang: DEPLOY_USER DEPLOY_SSH_KEY) ✅ |
+| gate lengkap | **LOLOS** ✅ |
+| `index.php?menu=1` (publik) | **200 / 23.943 B** (dulu 10.136 B) ✅ |
+| `auth-boot.php` (publik) | **200** (dulu 404) ✅ |
+| `pesan-db.php` (publik) | **200 / 2.370 B** (dulu 404) ✅ |
+| `koneksi.php` (publik) | **200** (dulu 0 B) ✅ |
+| Penanda tampilan baru | Masuk sebagai Guru/Siswa, Mode Siswa tersedia, Versi Prototype, Mobile friendly, tab-guru, tab-siswa — semua ADA ✅ |
+| Alur login guru (publik) | POST **302** → `dashboard-guru.php` **200 / 41.001 B** ✅ |
+
+### ⚠️ Yang perlu diingat
+- `cloudflared` berjalan sebagai **proses biasa, BUKAN service** → **mati setiap PC restart**
+  dan situs ikut mati. Untuk permanen (PowerShell **as Administrator**):
+  `cloudflared service install`
+- Situs bergantung pada PC pengembangan hidup (Apache :80 + MySQL :3306 + connector).
+- **Jangan percaya status hijau `deploy.yml`** sebelum secret diisi — sekarang ia akan
+  merah bila belum lengkap.
+
+---
+
+## 6. Berkas baru & berkas kunci
 
 | Berkas | Fungsi |
 |---|---|
@@ -225,7 +302,7 @@ yang dahulu diganti tombol tautan.
 
 ---
 
-## 6. Aturan yang harus dipegang pada pengeditan berikutnya
+## 7. Aturan yang harus dipegang pada pengeditan berikutnya
 
 1. **Jangan pakai `session_start()` mentah.** Selalu `require_once 'auth-boot.php';`
 2. **Jangan pakai `header('Location: ...')` + `exit` langsung** untuk halaman. Pakai `padi_kembali($url)`.
@@ -239,7 +316,7 @@ yang dahulu diganti tombol tautan.
 
 ---
 
-## 7. Cara menjalankan & menguji
+## 8. Cara menjalankan & menguji
 
 ### Lokal (XAMPP)
 
@@ -272,7 +349,7 @@ Start-Process -FilePath $cf -ArgumentList @('tunnel','--no-autoupdate','run','--
 
 ---
 
-## 8. Hal yang perlu diperhatikan (belum selesai)
+## 9. Hal yang perlu diperhatikan (belum selesai)
 
 - âš ï¸ **Connector Cloudflare berjalan sebagai proses biasa, bukan service** â†’ mati saat PC restart
   dan situs ikut mati. Untuk permanen, jalankan PowerShell **sebagai Administrator**:
