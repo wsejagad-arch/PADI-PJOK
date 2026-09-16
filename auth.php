@@ -299,7 +299,8 @@ function joinSesiSiswa($conn, $token)
 }
 
 /**
- * Siswa login langsung menggunakan Nama dan Token tanpa punya akun (bypass master_siswa).
+ * Siswa login menggunakan Nama (atau NIS) dan Token sesi.
+ * Memastikan siswa terdaftar di data admin (master_siswa) agar rekap nilai sinkron.
  */
 function loginSiswaTanpaAkun($conn, $nama, $token)
 {
@@ -310,7 +311,7 @@ function loginSiswaTanpaAkun($conn, $nama, $token)
     $token_bersih = trim((string)$token);
     
     if ($nama_bersih === '') {
-        $hasil['message'] = 'Nama lengkap wajib diisi.';
+        $hasil['message'] = 'Nama lengkap atau NIS wajib diisi.';
         return $hasil;
     }
     if ($token_bersih === '') {
@@ -318,7 +319,7 @@ function loginSiswaTanpaAkun($conn, $nama, $token)
         return $hasil;
     }
 
-    // Cari sesi aktif
+    // 1. Cari sesi aktif berdasarkan token
     $stmt = $conn->prepare("SELECT id, materi, kelas FROM sesi WHERE token = ? AND status = 'aktif' LIMIT 1");
     $stmt->bind_param("s", $token_bersih);
     $stmt->execute();
@@ -331,22 +332,37 @@ function loginSiswaTanpaAkun($conn, $nama, $token)
     $sesi = $res->fetch_assoc();
     $stmt->close();
 
-    // Pastikan siswa masuk ke tabel peserta sesi
-    $peserta_id = pastikanSiswaSesi($conn, $nama_bersih, (int)$sesi['id']);
+    // 2. Cari siswa di master_siswa (cek nama atau NIS)
+    $nama_lower = strtolower($nama_bersih);
+    $nis_clean = normalisasiNis($nama_bersih); // kalau yang diinput ternyata NIS
+    
+    $stmt_m = $conn->prepare("SELECT id, nama, nis, kelas FROM master_siswa WHERE LOWER(nama) = ? OR nis = ? LIMIT 1");
+    $stmt_m->bind_param("ss", $nama_lower, $nis_clean);
+    $stmt_m->execute();
+    $res_m = $stmt_m->get_result();
+    if (!$res_m || $res_m->num_rows === 0) {
+        $stmt_m->close();
+        $hasil['message'] = 'Siswa tidak ditemukan di data kelas. Pastikan nama sesuai dengan absen.';
+        return $hasil;
+    }
+    $master = $res_m->fetch_assoc();
+    $stmt_m->close();
 
-    // Regenerasi sesi untuk keamanan
+    // 3. Pastikan siswa masuk ke tabel peserta sesi (tabel siswa)
+    // agar muncul di pantauan guru
+    $peserta_id = pastikanSiswaSesi($conn, $master['nama'], (int)$sesi['id']);
+
+    // 4. Regenerasi sesi untuk keamanan
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_regenerate_id(true);
     }
 
-    // Isi sesi
-    // Kita isi master_id dengan peserta_id agar guard bisa lewat, 
-    // karena di sistem ini master_id adalah ID user utama.
-    $_SESSION['master_id'] = $peserta_id;
+    // 5. Isi sesi menggunakan data master agar fitur rekap nilai berfungsi normal
+    $_SESSION['master_id'] = (int)$master['id'];
     $_SESSION['siswa_id'] = $peserta_id;
-    $_SESSION['siswa_nama'] = $nama_bersih;
-    $_SESSION['siswa_nis'] = '-'; // Tidak ada NIS
-    $_SESSION['siswa_kelas'] = $sesi['kelas'];
+    $_SESSION['siswa_nama'] = $master['nama'];
+    $_SESSION['siswa_nis'] = $master['nis'];
+    $_SESSION['siswa_kelas'] = $master['kelas'];
     $_SESSION['sesi_id'] = (int)$sesi['id'];
     $_SESSION['materi'] = $sesi['materi'];
 

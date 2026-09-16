@@ -608,13 +608,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input type="hidden" name="peran" value="siswa"/>
         
         <div class="form-group">
-          <label class="form-label" for="nama">Nama Lengkap</label>
+          <label class="form-label" for="nama">Nama Lengkap / NIS</label>
           <div class="input-wrap">
             <svg class="left-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
-            <input class="form-input" type="text" id="nama" name="nama" placeholder="Masukkan Nama Lengkap" required/>
+            <input class="form-input" type="text" id="nama" name="nama" placeholder="Masukkan Nama atau NIS" required/>
           </div>
         </div>
 
