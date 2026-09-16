@@ -43,6 +43,18 @@ if ($conn) {
     .notif-btn{position:relative;width:36px;height:36px;background:var(--blue-light);border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer}
     .notif-btn svg{width:20px;height:20px;color:var(--blue)}
     .notif-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;background:#EF4444;border-radius:50%;border:2px solid var(--white)}
+    /* ── Keluar ── */
+    .topbar-aksi{display:flex;align-items:center;gap:8px}
+    .keluar-btn{display:flex;align-items:center;gap:6px;min-height:36px;padding:8px 13px;background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background .2s,border-color .2s}
+    .keluar-btn svg{width:16px;height:16px}
+    .keluar-btn:hover{background:#FEE2E2;border-color:#FCA5A5}
+    .keluar-btn:active{transform:translateY(1px)}
+    .nav-item.nav-keluar,.nav-item.nav-keluar span,.nav-item.nav-keluar svg{color:#DC2626}
+    .nav-item.nav-keluar.active .nav-indicator{background:#DC2626}
+    @media (max-width:420px){
+      .keluar-btn span{display:none}
+      .keluar-btn{padding:8px 10px}
+    }
 
     /* Hero */
     .hero{background:linear-gradient(135deg,#EFF6FF 0%,#DBEAFE 60%,#E0F2FE 100%);padding:20px 20px 0;display:flex;align-items:flex-end;min-height:155px;position:relative;overflow:hidden}
@@ -141,10 +153,17 @@ if ($conn) {
     <svg viewBox="0 0 28 28" fill="none"><circle cx="18" cy="5" r="3" fill="#1A56DB"/><path d="M6 24L13 14 11 9 17 5" stroke="#1A56DB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 9L18 12L24 9" stroke="#1A56DB" stroke-width="2.2" stroke-linecap="round"/><path d="M18 12L15 20L19 24" stroke="#1A56DB" stroke-width="2.2" stroke-linecap="round"/><path d="M2 18Q9 14 16 17" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/></svg>
     <span>PADI-PJOK</span>
   </div>
-  <button class="notif-btn" onclick="showToast('1 notifikasi baru')" aria-label="Notifikasi">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <span class="notif-dot"></span>
-  </button>
+  <div class="topbar-aksi">
+    <button class="notif-btn" onclick="showToast('1 notifikasi baru')" aria-label="Notifikasi">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="notif-dot"></span>
+    </button>
+    <a class="keluar-btn" href="logout.php" aria-label="Keluar dari akun"
+       onclick="return confirm('Keluar dari akun siswa ini?');">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 3H6a2 2 0 00-2 2v14a2 2 0 002 2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>Keluar</span>
+    </a>
+  </div>
 </header>
 
 <!-- Hero -->
@@ -275,6 +294,12 @@ if ($conn) {
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></svg>
     <span>Token</span>
+  </a>
+  <a href="logout.php" class="nav-item nav-keluar" aria-label="Keluar dari akun"
+     onclick="return confirm('Keluar dari akun siswa ini?');">
+    <div class="nav-indicator"></div>
+    <svg viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 3H6a2 2 0 00-2 2v14a2 2 0 002 2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>Keluar</span>
   </a>
 </nav>
 
