@@ -267,7 +267,7 @@ function joinSesiSiswa($conn, $token)
     }
 
     // Cari sesi berdasarkan token yang masih aktif
-    $stmt = $conn->prepare("SELECT id, kelas, materi FROM sesi WHERE token = ? AND status = 'aktif' LIMIT 1");
+    $stmt = $conn->prepare("SELECT id, kelas, materi FROM sesi WHERE UPPER(token) = UPPER(?) AND status = 'aktif' LIMIT 1");
     $stmt->bind_param("s", $token_bersih);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -320,7 +320,7 @@ function loginSiswaTanpaAkun($conn, $nama, $token)
     }
 
     // 1. Cari sesi aktif berdasarkan token
-    $stmt = $conn->prepare("SELECT id, materi, kelas FROM sesi WHERE token = ? AND status = 'aktif' LIMIT 1");
+    $stmt = $conn->prepare("SELECT id, materi, kelas FROM sesi WHERE UPPER(token) = UPPER(?) AND status = 'aktif' LIMIT 1");
     $stmt->bind_param("s", $token_bersih);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -333,11 +333,12 @@ function loginSiswaTanpaAkun($conn, $nama, $token)
     $stmt->close();
 
     // 2. Cari siswa di master_siswa (cek nama atau NIS)
-    $nama_lower = strtolower($nama_bersih);
+    $nama_lower = strtolower(trim($nama_bersih));
     $nis_clean = normalisasiNis($nama_bersih); // kalau yang diinput ternyata NIS
+    $nama_like = '%' . $nama_lower . '%';
     
-    $stmt_m = $conn->prepare("SELECT id, nama, nis, kelas FROM master_siswa WHERE LOWER(nama) = ? OR nis = ? LIMIT 1");
-    $stmt_m->bind_param("ss", $nama_lower, $nis_clean);
+    $stmt_m = $conn->prepare("SELECT id, nama, nis, kelas FROM master_siswa WHERE LOWER(nama) LIKE ? OR nis = ? LIMIT 1");
+    $stmt_m->bind_param("ss", $nama_like, $nis_clean);
     $stmt_m->execute();
     $res_m = $stmt_m->get_result();
     if (!$res_m || $res_m->num_rows === 0) {

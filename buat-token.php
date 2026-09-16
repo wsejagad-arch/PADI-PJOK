@@ -581,6 +581,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     <div class="field-divider"></div>
 
+    <!-- Token Kustom (Opsional) -->
+    <div class="form-field">
+      <div class="field-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="field-body">
+        <label class="field-label" for="input-custom-token">Token (Opsional)</label>
+        <div class="select-wrap">
+          <input type="text" class="field-select" id="input-custom-token" name="custom-token" placeholder="Biarkan kosong untuk token acak" style="text-transform: uppercase;">
+        </div>
+      </div>
+    </div>
+
+    <div class="field-divider"></div>
+
     <!-- Durasi Token -->
     <div class="form-field">
       <div class="field-icon" aria-hidden="true">
@@ -744,12 +762,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
   let currentToken = '';
 
   function generateToken() {
-    const kelas   = document.getElementById('select-kelas').value;
-    const materi  = document.getElementById('select-materi').value;
-    const prefix  = materiMap[materi] || 'PJOK';
-    const kelasCode = kelas.replace('-','');
-    const num     = Math.floor(100 + Math.random() * 900);
-    return `${prefix}-${kelasCode}-${num}`;
+    const customToken = document.getElementById('input-custom-token').value.trim();
+    if (customToken !== '') {
+      return customToken.toUpperCase();
+    }
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let randomPart = '';
+    for(let i=0; i<4; i++){
+      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return randomPart;
   }
 
   function buatToken() {
