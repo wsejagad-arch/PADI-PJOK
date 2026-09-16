@@ -33,9 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tab    = ($peran === 'siswa') ? 'siswa' : 'guru';
 
     if ($peran === 'siswa') {
-        $hasil = loginSiswa($conn, $_POST['nis'] ?? $_POST['dokumen'] ?? '', $_POST['password'] ?? '');
+        $hasil = loginSiswaTanpaAkun($conn, $_POST['nama'] ?? '', $_POST['token'] ?? '');
         if (!empty($hasil['success'])) {
-            padi_kembali('input-token.php');
+            // Jika login pakai token langsung sukses, arahkan ke dashboard siswa atau aktivitas
+            padi_kembali('dashboard-siswa.php');
         }
         $err = $hasil['message'] ?? 'Login gagal.';
     } else {
@@ -607,30 +608,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input type="hidden" name="peran" value="siswa"/>
         
         <div class="form-group">
-          <label class="form-label" for="nis">Nomor Induk / NIS</label>
+          <label class="form-label" for="nama">Nama Lengkap</label>
           <div class="input-wrap">
             <svg class="left-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
-            <input class="form-input" type="text" id="nis" name="nis" placeholder="Masukkan Nomor Induk" required/>
+            <input class="form-input" type="text" id="nama" name="nama" placeholder="Masukkan Nama Lengkap" required/>
           </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 24px;">
-          <label class="form-label" for="password-siswa">Password / Token</label>
+          <label class="form-label" for="token-siswa">Token Materi</label>
           <div class="input-wrap">
             <svg class="left-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
-            <input class="form-input" type="password" id="password-siswa" name="password" placeholder="Masukkan password / token" required/>
-            <button type="button" class="toggle-pw" onclick="togglePw('password-siswa')">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
-            </button>
+            <input class="form-input" type="text" id="token-siswa" name="token" placeholder="Masukkan Token Materi" required/>
           </div>
         </div>
 

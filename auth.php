@@ -299,6 +299,63 @@ function joinSesiSiswa($conn, $token)
 }
 
 /**
+ * Siswa login langsung menggunakan Nama dan Token tanpa punya akun (bypass master_siswa).
+ */
+function loginSiswaTanpaAkun($conn, $nama, $token)
+{
+    $hasil = ['success' => false, 'message' => ''];
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    
+    $nama_bersih = trim((string)$nama);
+    $token_bersih = trim((string)$token);
+    
+    if ($nama_bersih === '') {
+        $hasil['message'] = 'Nama lengkap wajib diisi.';
+        return $hasil;
+    }
+    if ($token_bersih === '') {
+        $hasil['message'] = 'Token wajib diisi.';
+        return $hasil;
+    }
+
+    // Cari sesi aktif
+    $stmt = $conn->prepare("SELECT id, materi, kelas FROM sesi WHERE token = ? AND status = 'aktif' LIMIT 1");
+    $stmt->bind_param("s", $token_bersih);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    if (!$res || $res->num_rows === 0) {
+        $stmt->close();
+        $hasil['message'] = 'Token tidak valid atau sesi sudah ditutup.';
+        return $hasil;
+    }
+    $sesi = $res->fetch_assoc();
+    $stmt->close();
+
+    // Pastikan siswa masuk ke tabel peserta sesi
+    $peserta_id = pastikanSiswaSesi($conn, $nama_bersih, (int)$sesi['id']);
+
+    // Regenerasi sesi untuk keamanan
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
+
+    // Isi sesi
+    // Kita isi master_id dengan peserta_id agar guard bisa lewat, 
+    // karena di sistem ini master_id adalah ID user utama.
+    $_SESSION['master_id'] = $peserta_id;
+    $_SESSION['siswa_id'] = $peserta_id;
+    $_SESSION['siswa_nama'] = $nama_bersih;
+    $_SESSION['siswa_nis'] = '-'; // Tidak ada NIS
+    $_SESSION['siswa_kelas'] = $sesi['kelas'];
+    $_SESSION['sesi_id'] = (int)$sesi['id'];
+    $_SESSION['materi'] = $sesi['materi'];
+
+    $hasil['success'] = true;
+    $hasil['message'] = 'Login berhasil.';
+    return $hasil;
+}
+
+/**
  * Cek password keamanan siswa (untuk popup token/rekap, tanpa mengubah sesi).
  * @return array ['success'=>bool,'message'=>string,'token'=>string]
  */

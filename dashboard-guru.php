@@ -629,31 +629,38 @@ if($conn) {
     </svg>
     <span>PADI-PJOK</span>
   </div>
-  <div style="position: relative;">
-  <button class="notif-btn" id="notif-btn" aria-label="Notifikasi" onclick="document.getElementById('notif-dropdown').style.display = document.getElementById('notif-dropdown').style.display === 'none' ? 'block' : 'none'">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      <path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-    <?php if($unread > 0): ?>
-    <span class="notif-dot" aria-label="<?=$unread?> notifikasi baru"></span>
-    <?php endif; ?>
-  </button>
-  <div id="notif-dropdown" style="display:none; position: absolute; top: 45px; right: 0; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); width: 250px; z-index: 100; text-align: left;">
-    <div style="padding: 10px; border-bottom: 1px solid var(--border); font-weight: bold; font-size: 12px; color: var(--text);">Notifikasi Terbaru</div>
-    <div style="max-height: 200px; overflow-y: auto;">
-      <?php if(empty($notifs)): ?>
-        <div style="padding: 10px; font-size: 11px; color: var(--text-3); text-align: center;">Belum ada notifikasi</div>
-      <?php else: ?>
-        <?php foreach($notifs as $n): ?>
-          <div style="padding: 10px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-2); <?php if(!$n['is_read']) echo 'background: var(--blue-light);'; ?>">
-            <?= htmlspecialchars($n['pesan']) ?>
-          </div>
-        <?php endforeach; ?>
+  <div style="position: relative; display: flex; gap: 8px; align-items: center;">
+    <button class="notif-btn" id="notif-btn" aria-label="Notifikasi" onclick="document.getElementById('notif-dropdown').style.display = document.getElementById('notif-dropdown').style.display === 'none' ? 'block' : 'none'">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <?php if($unread > 0): ?>
+      <span class="notif-dot" aria-label="<?=$unread?> notifikasi baru"></span>
       <?php endif; ?>
+    </button>
+    <a href="logout.php" aria-label="Keluar" style="display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: #FEF2F2; color: #DC2626; text-decoration: none; transition: background .2s;" onmouseover="this.style.background='#FEE2E2'" onmouseout="this.style.background='#FEF2F2'">
+      <svg viewBox="0 0 24 24" fill="none" style="width: 20px; height: 20px;" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"></path>
+        <polyline points="16 17 21 12 16 7"></polyline>
+        <line x1="21" y1="12" x2="9" y2="12"></line>
+      </svg>
+    </a>
+    <div id="notif-dropdown" style="display:none; position: absolute; top: 45px; right: 0; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); width: 250px; z-index: 100; text-align: left;">
+      <div style="padding: 10px; border-bottom: 1px solid var(--border); font-weight: bold; font-size: 12px; color: var(--text);">Notifikasi Terbaru</div>
+      <div style="max-height: 200px; overflow-y: auto;">
+        <?php if(empty($notifs)): ?>
+          <div style="padding: 10px; font-size: 11px; color: var(--text-3); text-align: center;">Belum ada notifikasi</div>
+        <?php else: ?>
+          <?php foreach($notifs as $n): ?>
+            <div style="padding: 10px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-2); <?php if(!$n['is_read']) echo 'background: var(--blue-light);'; ?>">
+              <?= htmlspecialchars($n['pesan']) ?>
+            </div>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </div>
     </div>
   </div>
-</div>
 </header>
 
 <main class="content" id="beranda-panel">
