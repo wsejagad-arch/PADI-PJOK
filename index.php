@@ -11,7 +11,7 @@ if (empty($conn)) {
 }
 
 // Pengunjung yang masih punya sesi aktif diarahkan ke halaman utamanya.
-// (Buka index.php?menu=1 bila ingin tetap melihat halaman sambutan ini.)
+// (Buka index.php?menu=1 bila ingin tetap melihat halaman login ini.)
 $minta_menu = isset($_GET['menu']) || isset($_GET['pilih']);
 if (!$minta_menu) {
     if (!empty($_SESSION['guru_id'])) {
@@ -20,6 +20,30 @@ if (!$minta_menu) {
         padi_kembali('dashboard-siswa.php');
     } elseif (!empty($_SESSION['master_id'])) {
         padi_kembali('input-token.php');
+    }
+}
+
+// ── Pemrosesan login satu halaman (Guru / Siswa) ──
+$tab  = 'guru';            // tab aktif: guru | siswa
+$err  = '';
+$sukses = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $peran  = $_POST['peran'] ?? 'guru';
+    $tab    = ($peran === 'siswa') ? 'siswa' : 'guru';
+
+    if ($peran === 'siswa') {
+        $hasil = loginSiswa($conn, $_POST['nis'] ?? $_POST['dokumen'] ?? '', $_POST['password'] ?? '');
+        if (!empty($hasil['success'])) {
+            padi_kembali('input-token.php');
+        }
+        $err = $hasil['message'] ?? 'Login gagal.';
+    } else {
+        $hasil = loginGuru($conn, $_POST['username'] ?? $_POST['email'] ?? '', $_POST['password'] ?? '');
+        if (!empty($hasil['success'])) {
+            padi_kembali('dashboard-guru.php');
+        }
+        $err = $hasil['message'] ?? 'Login gagal.';
     }
 }
 ?>
@@ -508,56 +532,165 @@ if (!$minta_menu) {
       </div>
       <div class="welcome-text">
         <h2>Selamat datang di PADI-PJOK!</h2>
-        <p>Guru membuat sesi penilaian dan token materi. Siswa masuk dengan Nomor Induk dan password (token dari guru).</p>
+        <p>Guru membuat sesi penilaian dan token materi. Siswa cukup masuk dengan Nomor Induk dan token tanpa membuat akun.</p>
       </div>
     </div>
 
-    <!-- ── Pilihan halaman login (terpisah) ── -->
-    <div class="form-section" style="display:flex; flex-direction:column; gap:14px;">
-
-      <a href="login-siswa.php" class="student-banner" role="button" style="margin:0; align-items:center;">
-        <div class="student-banner-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 3L22 8l-10 5L2 8l10-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            <path d="M6 10.5v5a6 6 0 0012 0v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="student-banner-text">
-          <strong>Login Siswa</strong>
-          <span>Nomor Induk + password (token materi dari guru)</span>
-        </div>
-        <span class="student-banner-arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </span>
-      </a>
-
-      <a href="login-guru.php" class="student-banner" role="button" style="margin:0; align-items:center;">
-        <div class="student-banner-icon" aria-hidden="true" style="background:#7C3AED;">
-          <svg viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
-            <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="student-banner-text">
-          <strong>Login Guru</strong>
-          <span>Kelola sesi, token materi, dan penilaian siswa</span>
-        </div>
-        <span class="student-banner-arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </span>
-      </a>
-
-      <p style="font-size:12.5px; color:var(--text-gray); line-height:1.6; text-align:center; margin-top:4px;">
-        Halaman login guru dan siswa terpisah. Siswa memakai Nomor Induk dan password berupa token materi dari guru.
-      </p>
+    <!-- ── Tabs: Guru / Siswa ── -->
+    <div class="tabs" role="tablist" aria-label="Pilih peran login">
+      <button type="button" class="tab-btn <?= $tab === 'guru' ? 'active' : '' ?>"
+              id="tab-guru" role="tab" aria-selected="<?= $tab === 'guru' ? 'true' : 'false' ?>"
+              aria-controls="panel-guru" onclick="switchTab('guru')">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+          <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Guru
+      </button>
+      <button type="button" class="tab-btn <?= $tab === 'siswa' ? 'active' : '' ?>"
+              id="tab-siswa" role="tab" aria-selected="<?= $tab === 'siswa' ? 'true' : 'false' ?>"
+              aria-controls="panel-siswa" onclick="switchTab('siswa')">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 3L22 8l-10 5L2 8l10-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M6 10.5v5a6 6 0 0012 0v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Siswa
+      </button>
     </div>
+
+    <?php if ($err !== ''): ?>
+      <div class="alert" role="alert" style="background:#FEF2F2;border:1.5px solid #FECACA;color:#B91C1C;border-radius:10px;padding:12px 14px;font-size:13px;font-weight:600;margin-bottom:16px;">
+        <?= htmlspecialchars($err, ENT_QUOTES, 'UTF-8') ?>
+      </div>
+    <?php endif; ?>
+
+    <!-- ── Panel Guru ── -->
+    <form method="post" id="panel-guru" class="form-section" role="tabpanel" aria-labelledby="tab-guru"
+          style="<?= $tab === 'guru' ? '' : 'display:none;' ?>">
+      <input type="hidden" name="peran" value="guru"/>
+
+      <div class="form-group">
+        <label class="form-label" for="username">Email / Username</label>
+        <div class="input-wrap">
+          <span class="input-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M4 7l8 6 8-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <input class="form-input" type="text" id="username" name="username"
+                 placeholder="Masukkan email atau username" autocomplete="username" required/>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password-guru">Password</label>
+        <div class="input-wrap">
+          <span class="input-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </span>
+          <input class="form-input" type="password" id="password-guru" name="password"
+                 placeholder="Masukkan password" autocomplete="current-password" required/>
+          <button type="button" class="toggle-pw" aria-label="Tampilkan password" onclick="togglePw('password-guru', this)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="forgot-row">
+        <a class="forgot-link" href="login-guru.php">Lupa password?</a>
+      </div>
+
+      <button type="submit" class="btn-submit">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+          <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Masuk sebagai Guru
+      </button>
+    </form>
+
+    <!-- ── Panel Siswa ── -->
+    <form method="post" id="panel-siswa" class="form-section" role="tabpanel" aria-labelledby="tab-siswa"
+          style="<?= $tab === 'siswa' ? '' : 'display:none;' ?>">
+      <input type="hidden" name="peran" value="siswa"/>
+
+      <div class="form-group">
+        <label class="form-label" for="nis">Nomor Induk / NIS</label>
+        <div class="input-wrap">
+          <span class="input-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M7 9h4M7 13h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="10" r="2" stroke="currentColor" stroke-width="1.8"/></svg>
+          </span>
+          <input class="form-input" type="text" id="nis" name="nis"
+                 placeholder="Masukkan Nomor Induk / NIS" autocomplete="username" required/>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password-siswa">Password / Token</label>
+        <div class="input-wrap">
+          <span class="input-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </span>
+          <input class="form-input" type="password" id="password-siswa" name="password"
+                 placeholder="Masukkan password / token materi" autocomplete="current-password" required/>
+          <button type="button" class="toggle-pw" aria-label="Tampilkan password" onclick="togglePw('password-siswa', this)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-submit">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 3L22 8l-10 5L2 8l10-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M6 10.5v5a6 6 0 0012 0v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Masuk sebagai Siswa
+      </button>
+
+      <p style="font-size:12px; color:var(--text-gray); line-height:1.6; text-align:center;">
+        Pertama kali login? Gunakan Nomor Induk sebagai password, lalu masukkan token materi dari guru.
+      </p>
+    </form>
+
+    <!-- ── Banner mode siswa ── -->
+    <a href="#" class="student-banner" role="button" onclick="switchTab('siswa'); return false;">
+      <div class="student-banner-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 3L22 8l-10 5L2 8l10-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M6 10.5v5a6 6 0 0012 0v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="student-banner-text">
+        <strong>Mode Siswa tersedia</strong>
+        <span>Siswa login dengan Nomor Induk + Token Materi</span>
+      </div>
+      <span class="student-banner-arrow" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+    </a>
 
   </div><!-- /body -->
 
+  <!-- ── Footer badges ── -->
+  <div class="footer-badges">
+    <span class="badge blue">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="6" y="2" width="12" height="20" rx="2" stroke="currentColor" stroke-width="2"/><path d="M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Mobile friendly
+    </span>
+    <span class="badge green">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      ringan
+    </span>
+    <span class="badge blue">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v6c0 4.4-3 8-7 9-4-1-7-4.6-7-9V6l7-3z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      tanpa akun untuk siswa
+    </span>
+  </div>
+
+  <div class="footer-version">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v6c0 4.4-3 8-7 9-4-1-7-4.6-7-9V6l7-3z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    Versi Prototype
+  </div>
 
 </div>
 
@@ -565,8 +698,33 @@ if (!$minta_menu) {
 <div class="toast" id="toast" role="alert" aria-live="polite"></div>
 
 <script>
-  /* ── Login guru & siswa kini di halaman terpisah ── */
-  function switchTab() { /* tidak dipakai lagi */ }
+  /* ── Ganti tab Guru / Siswa ── */
+  function switchTab(peran) {
+    const guru  = peran !== 'siswa';
+    const tabs  = { guru: document.getElementById('tab-guru'), siswa: document.getElementById('tab-siswa') };
+    const panel = { guru: document.getElementById('panel-guru'), siswa: document.getElementById('panel-siswa') };
+
+    Object.keys(tabs).forEach(function (k) {
+      const aktif = (k === 'guru') === guru;
+      tabs[k].classList.toggle('active', aktif);
+      tabs[k].setAttribute('aria-selected', aktif ? 'true' : 'false');
+      panel[k].style.display = aktif ? '' : 'none';
+      panel[k].classList.toggle('form-section--aktif', aktif);
+    });
+
+    // Fokuskan isian pertama panel yang tampil (ramah keyboard/HP).
+    const isian = panel[guru ? 'guru' : 'siswa'].querySelector('input:not([type=hidden])');
+    if (isian && window.innerWidth > 640) { isian.focus(); }
+  }
+
+  /* ── Tampilkan / sembunyikan password ── */
+  function togglePw(id, tombol) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const tampil = el.type === 'password';
+    el.type = tampil ? 'text' : 'password';
+    tombol.setAttribute('aria-label', tampil ? 'Sembunyikan password' : 'Tampilkan password');
+  }
 
   /* ── Toast ── */
   function showToast(msg) {

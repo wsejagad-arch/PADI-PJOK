@@ -1,0 +1,16 @@
+﻿================================================================
+LANGKAH DI CT 102  (console Proxmox -> pct enter 102)
+================================================================
+1) Pasang cloudflared (sekali saja):
+   curl -fsSL https://pkg.cloudflare.com/cloudflare-public-v2.gpg | sudo tee /usr/share/keyrings/cloudflare-public-v2.gpg >/dev/null
+   echo 'deb [signed-by=/usr/share/keyrings/cloudflare-public-v2.gpg] https://pkg.cloudflare.com/cloudflared any main' | sudo tee /etc/apt/sources.list.d/cloudflared.list
+   sudo apt-get update && sudo apt-get install -y cloudflared
+
+2) Pasang sebagai service (token sudah terisi; JANGAN dibagikan):
+   sudo cloudflared service install eyJhIjoiOTgyNzc3MGQwMjRjYTg1ZTE1ZWU5M2FhM2NjNGQzMjgiLCJ0IjoiZGMxNzYwMmYtNWU4MS00MDVmLWEyYWYtNjc4YmY5YWFjZjQyIiwicyI6IlpEWTRNRFpsWkdZdFpqRTRPUzAwWmpoaExXSTNZMll0TldFd05XUTVZVFJrTWpRNCJ9
+
+3) Periksa:
+   systemctl is-active cloudflared
+   curl -s -o /dev/null -w 'origin %{http_code}\n' http://127.0.0.1/
+
+CATATAN: token di atas RAHASIA, setara kunci masuk tunnel.

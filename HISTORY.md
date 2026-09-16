@@ -1,4 +1,4 @@
-# Riwayat Pengeditan PADI-PJOK
+﻿# Riwayat Pengeditan PADI-PJOK
 
 Dokumen ini mencatat riwayat pengeditan kode terakhir beserta sebab, bukti, dan hasil
 verifikasinya. Ditulis agar sesi berikutnya tidak perlu mengulang penyelidikan.
@@ -16,73 +16,74 @@ verifikasinya. Ditulis agar sesi berikutnya tidak perlu mengulang penyelidikan.
 
 | # | Tanggal | Commit | Perubahan | Status |
 |---|---|---|---|---|
-| 4 | 16 Sep 2026 | `6af66f9` | Kembalikan halaman utama ke tampilan awal (header sambutan + tombol Login Guru/Siswa) | ✅ terverifikasi |
-| 3 | 16 Sep 2026 | `f8cf6a9` | Perbaiki `deploy.sh` agar satu paket hilang tidak menggagalkan deploy | ✅ terverifikasi |
-| 2 | 16 Sep 2026 | `8411c0a` | Cegah halaman putih setelah login (guard per-peran, sesi berbagi, tahan DB mati) | ✅ terverifikasi |
-| 1 | 15 Sep 2026 | `c18c6e6` | Skrip pasang Cloudflare Tunnel permanen (CT 102) | ✅ |
+| 5 | 16 Sep 2026 | (lokal) | Pulihkan tampilan login satu halaman (tab Guru/Siswa, form, banner mode siswa, footer) | âœ… terverifikasi lokal |
+| 4 | 16 Sep 2026 | `6af66f9` | Kembalikan halaman utama ke tampilan awal (header sambutan + tombol Login Guru/Siswa) | âœ… terverifikasi |
+| 3 | 16 Sep 2026 | `f8cf6a9` | Perbaiki `deploy.sh` agar satu paket hilang tidak menggagalkan deploy | âœ… terverifikasi |
+| 2 | 16 Sep 2026 | `8411c0a` | Cegah halaman putih setelah login (guard per-peran, sesi berbagi, tahan DB mati) | âœ… terverifikasi |
+| 1 | 15 Sep 2026 | `c18c6e6` | Skrip pasang Cloudflare Tunnel permanen (CT 102) | âœ… |
 
 ---
 
-## 2. Perbaikan BLANK PUTIH setelah login — commit `8411c0a` (16 Sep 2026)
+## 2. Perbaikan BLANK PUTIH setelah login â€” commit `8411c0a` (16 Sep 2026)
 
 ### Gejala
-Login guru berhasil (`POST login-guru.php` → 302 ke `dashboard-guru.php`), tetapi
-`dashboard-guru.php` membalas **HTTP 500 dengan body 0 byte** — halaman putih tanpa petunjuk.
+Login guru berhasil (`POST login-guru.php` â†’ 302 ke `dashboard-guru.php`), tetapi
+`dashboard-guru.php` membalas **HTTP 500 dengan body 0 byte** â€” halaman putih tanpa petunjuk.
 Halaman login siswa juga terdampak.
 
 ### Penyebab (dua lapis)
 
-**Lapis 1 — kode aplikasi**
+**Lapis 1 â€” kode aplikasi**
 
 | Berkas | Masalah |
 |---|---|
-| `verifikasi-token.php` | Memakai `session_start()` mentah + `require 'koneksi.php'` relatif. Bila ada satu saja teks/JSON keluar sebelum `session_start()`, PHP mematikan skrip → body kosong. |
-| `koneksi.php` | `die()` saat koneksi DB gagal → halaman putih/500 ketika MySQL belum siap. |
+| `verifikasi-token.php` | Memakai `session_start()` mentah + `require 'koneksi.php'` relatif. Bila ada satu saja teks/JSON keluar sebelum `session_start()`, PHP mematikan skrip â†’ body kosong. |
+| `koneksi.php` | `die()` saat koneksi DB gagal â†’ halaman putih/500 ketika MySQL belum siap. |
 | `auth.php` | Guard mengirim pengguna ke halaman login peran yang salah. |
 | `index.php` | Menebak peran dengan memvalidasi input ke tabel `master_siswa`, sehingga login guru selalu gagal. |
 
-**Lapis 2 — produksi tertinggal versi (penyebab utama 500)**
+**Lapis 2 â€” produksi tertinggal versi (penyebab utama 500)**
 
 Dibandingkan produksi vs lokal:
 
 | berkas | produksi | lokal | keterangan |
 |---|---|---|---|
-| `setup_db.php` | 507 B | 4.814 B | ❌ |
-| `verifikasi-token.php` | 65 B | 1.407 B | ❌ masih berisi `padi_muat_env` (artefak skrip deploy lama) |
-| `login-guru.php` | 9.764 B | 11.188 B | ❌ |
-| `koneksi.php` | **0 B** | 4.250 B | ❌ tanpa penjaga idempoten |
-| `auth-boot.php` | **404** | ada | ❌ belum ada |
-| `pesan-db.php` | **404** | ada | ❌ belum ada |
+| `setup_db.php` | 507 B | 4.814 B | âŒ |
+| `verifikasi-token.php` | 65 B | 1.407 B | âŒ masih berisi `padi_muat_env` (artefak skrip deploy lama) |
+| `login-guru.php` | 9.764 B | 11.188 B | âŒ |
+| `koneksi.php` | **0 B** | 4.250 B | âŒ tanpa penjaga idempoten |
+| `auth-boot.php` | **404** | ada | âŒ belum ada |
+| `pesan-db.php` | **404** | ada | âŒ belum ada |
 
 Penyebab: `deploy.sh` meng-clone dari GitHub, tetapi deploy terakhir **gagal di tengah jalan**
-karena `php8.2-json` tidak tersedia → direktori aplikasi tidak pernah ditulis ulang, sehingga
+karena `php8.2-json` tidak tersedia â†’ direktori aplikasi tidak pernah ditulis ulang, sehingga
 situs tetap menyajikan kode lama (masih bug "Cannot redeclare").
 
 ### Perbaikan kode
 
 | Berkas | Perubahan |
 |---|---|
-| `koneksi.php` | Penjaga idempoten `PADI_KONEKSI_SELESAI` (berlaku untuk semua `require`, bukan hanya lewat `auth`); pengalih `.env` (produksi) vs `.env.local` (lokal); `padi_coba_koneksi()` — **tidak lagi `die()`** saat DB mati, galat dicatat ke log; `display_errors=0`; variabel `$padi_db_error`. |
+| `koneksi.php` | Penjaga idempoten `PADI_KONEKSI_SELESAI` (berlaku untuk semua `require`, bukan hanya lewat `auth`); pengalih `.env` (produksi) vs `.env.local` (lokal); `padi_coba_koneksi()` â€” **tidak lagi `die()`** saat DB mati, galat dicatat ke log; `display_errors=0`; variabel `$padi_db_error`. |
 | `auth-boot.php` **(baru)** | Titik masuk aman: memuat `koneksi.php` + `auth.php`, lalu `padi_berbagi_sesi()` (cookie `path=/` agar sesi tidak hilang bila domain disajikan dari folder lain) + `padi_mulai_sesi()`. |
-| `auth.php` | `padi_mulai_sesi()`; `padi_berbagi_sesi()`; `padi_url_login($tipe)`; `padi_kembali()` — redirect anti-putih (header + meta refresh + tautan manual bila header gagal); guard `wajibLoginGuru()` / `wajibLoginSiswa()` memakai pengalih peran yang benar. |
+| `auth.php` | `padi_mulai_sesi()`; `padi_berbagi_sesi()`; `padi_url_login($tipe)`; `padi_kembali()` â€” redirect anti-putih (header + meta refresh + tautan manual bila header gagal); guard `wajibLoginGuru()` / `wajibLoginSiswa()` memakai pengalih peran yang benar. |
 | `pesan-db.php` **(baru)** | Halaman panduan saat database belum siap (langkah perbaikan + tautan), menggantikan HTTP 500. |
-| `index.php` | Portal satu pintu: kartu **Guru** → `login-guru.php` (tanpa menebak lewat tabel siswa); kartu **Siswa** → form NIS + password. `?menu=1` untuk tetap di portal meski sudah login. |
+| `index.php` | Portal satu pintu: kartu **Guru** â†’ `login-guru.php` (tanpa menebak lewat tabel siswa); kartu **Siswa** â†’ form NIS + password. `?menu=1` untuk tetap di portal meski sudah login. |
 | `verifikasi-token.php` | Ditulis ulang: `require auth-boot.php`, hapus `session_start()` ganda, jawaban JSON konsisten `{success, token, materi, kelas}`. |
 
-### Perbaikan skrip deploy — commit `f8cf6a9`
+### Perbaikan skrip deploy â€” commit `f8cf6a9`
 
 | Perubahan | Alasan |
 |---|---|
 | Tahap tarik kode dipindah ke **tahap 2** (sebelum konfigurasi layanan) | Kegagalan langkah lanjutan tidak lagi meninggalkan versi lama |
 | `json` dikeluarkan dari daftar ekstensi wajib; hanya dipasang bila tersedia | `php8.2-json` menyatu ke core sejak PHP 8 |
 | Verifikasi binari PHP (`command -v php` + `php -v`) sebelum lanjut | Deteksi dini bila pemasangan PHP gagal |
-| Bila direktori bukan repo git dan penarikan gagal → **clone ulang bersih** ke `<appdir>.lama.<tanggal>` | Memulihkan kondisi yang membuat produksi tertinggal |
-| Gagal `git clone` → berhenti dengan pesan jelas | Menghindari situs setengah jadi |
+| Bila direktori bukan repo git dan penarikan gagal â†’ **clone ulang bersih** ke `<appdir>.lama.<tanggal>` | Memulihkan kondisi yang membuat produksi tertinggal |
+| Gagal `git clone` â†’ berhenti dengan pesan jelas | Menghindari situs setengah jadi |
 
 ### Perbaikan akar masalah sesi (temuan kunci)
 
 Apache di **PC pengembangan** (XAMPP) ternyata adalah origin yang melayani
-`padipjok.pintarhub.com` (dibuktikan: `curl -H "Host: padipjok.pintarhub.com" http://127.0.0.1/...` → 200).
+`padipjok.pintarhub.com` (dibuktikan: `curl -H "Host: padipjok.pintarhub.com" http://127.0.0.1/...` â†’ 200).
 Domain publik tampak "versi lama" karena **connector Cloudflare Tunnel mati**, sehingga
 Cloudflare menyajikan salinan lama. Perbaikan cukup dijalankan dari PC pengembangan.
 
@@ -102,24 +103,24 @@ Start-Process -FilePath $cf -ArgumentList @('tunnel','--no-autoupdate','run','--
 | `dashboard-guru.php` | **500 / 0 byte** | **200 / 41.001 B** |
 | `auth-boot.php` | 404 | 200 |
 | `pesan-db.php` | 404 | 200 / 2.370 B |
-| `buat-token.php` | — | 200 / 30.308 B |
-| `mulai-sesi.php` | — | 200 / 5.033 B |
-| `data-siswa.php` | — | 200 / 12.933 B |
-| `nilai-guru.php` | — | 200 / 5.149 B |
-| `laporan.php` | — | 200 / 2.738 B |
-| `pantau-siswa.php` | — | 200 / 2.641 B |
-| `rekap-penilaian.php` | — | 200 / 15.849 B |
-| `profil-guru.php` | — | 200 / 5.130 B |
-| `index.php` | — | 200 / 15.701 B |
-| `login-siswa.php` | — | 200 / 13.669 B |
-| `input-token.php` | — | 302 (benar, belum ada token) |
+| `buat-token.php` | â€” | 200 / 30.308 B |
+| `mulai-sesi.php` | â€” | 200 / 5.033 B |
+| `data-siswa.php` | â€” | 200 / 12.933 B |
+| `nilai-guru.php` | â€” | 200 / 5.149 B |
+| `laporan.php` | â€” | 200 / 2.738 B |
+| `pantau-siswa.php` | â€” | 200 / 2.641 B |
+| `rekap-penilaian.php` | â€” | 200 / 15.849 B |
+| `profil-guru.php` | â€” | 200 / 5.130 B |
+| `index.php` | â€” | 200 / 15.701 B |
+| `login-siswa.php` | â€” | 200 / 13.669 B |
+| `input-token.php` | â€” | 302 (benar, belum ada token) |
 
 Uji lokal (Apache + MySQL XAMPP hidup): **12/12 lulus**.
 Uji DB dimatikan: halaman tetap **200** tanpa 500 (dulu `die()`).
 
 ---
 
-## 3. Pengembalian tampilan halaman utama — commit `6af66f9` (16 Sep 2026)
+## 3. Pengembalian tampilan halaman utama â€” commit `6af66f9` (16 Sep 2026)
 
 ### Permintaan
 Halaman utama login dikembalikan ke tampilan awal: ada header **"Selamat datang di PADI-PJOK"**
@@ -127,14 +128,14 @@ dan tombol **Login Guru** serta **Login Siswa**.
 
 ### Tindakan
 Dipulihkan dari berkas cadangan `index-portal.php.bak` (16.664 byte) sebagai `index.php`
-— bukan dibuat ulang — lalu tetap disambungkan ke jalur aman.
+â€” bukan dibuat ulang â€” lalu tetap disambungkan ke jalur aman.
 
 ### Isi tampilan
 - Header: logo ikon pelari + teks **PADI-PJOK** + sub-judul "Penilaian Autentik Digital Integratif untuk PJOK"
 - Ilustrasi hero: `padi_pjok_hero_1781370290670.png`
 - Kartu sambutan: **"Selamat datang di PADI-PJOK!"** + penjelasan singkat
-- Tombol **Login Siswa** (ikon biru) → "Nomor Induk + password (token materi dari guru)"
-- Tombol **Login Guru** (ikon ungu) → "Kelola sesi, token materi, dan penilaian siswa"
+- Tombol **Login Siswa** (ikon biru) â†’ "Nomor Induk + password (token materi dari guru)"
+- Tombol **Login Guru** (ikon ungu) â†’ "Kelola sesi, token materi, dan penilaian siswa"
 - Catatan penutup di bawah kedua tombol
 
 ### Tetap aman (perbaikan blank putih tidak dikorbankan)
@@ -149,7 +150,7 @@ if (empty($conn)) {
 ```
 
 - Sesi dimulai lewat helper (tidak ada `session_start()` mentah).
-- Bila DB belum siap → halaman panduan, bukan HTTP 500.
+- Bila DB belum siap â†’ halaman panduan, bukan HTTP 500.
 - Pengguna yang sudah login diarahkan ke dashboard sesuai perannya; `index.php?menu=1` untuk tetap di sambutan.
 
 ### Verifikasi
@@ -157,17 +158,61 @@ if (empty($conn)) {
 | uji | hasil |
 |---|---|
 | `index.php` (publik) | 200 / 16.666 B |
-| ada "Selamat datang di PADI-PJOK!" | ✅ |
-| ada tombol Login Guru & Login Siswa | ✅ |
-| ilustrasi hero tampil | ✅ |
-| tombol → `login-siswa.php` | 200 / 13.451 B |
-| tombol → `login-guru.php` | 200 / 9.917 B |
-| alur login guru → `dashboard-guru.php` | 200 / 41.001 B |
-| tangkapan layar browser | tampilan sesuai versi awal ✅ |
+| ada "Selamat datang di PADI-PJOK!" | âœ… |
+| ada tombol Login Guru & Login Siswa | âœ… |
+| ilustrasi hero tampil | âœ… |
+| tombol â†’ `login-siswa.php` | 200 / 13.451 B |
+| tombol â†’ `login-guru.php` | 200 / 9.917 B |
+| alur login guru â†’ `dashboard-guru.php` | 200 / 41.001 B |
+| tangkapan layar browser | tampilan sesuai versi awal âœ… |
 
 ---
 
-## 4. Berkas baru & berkas kunci
+## 4. Pemulihan tampilan login satu halaman â€” 16 Sep 2026 (lokal, belum di-commit)
+
+### Permintaan
+Kembalikan **tampilan login** seperti "pertama kali sebelum dirombak": satu halaman login
+di `index.php` dengan **tab Guru / Siswa**, form email/username + password, tautan
+"Lupa password?", banner **Mode Siswa tersedia**, tiga lencana fitur, dan footer
+**Versi Prototype**.
+
+### Temuan
+Tampilan bertab itu **tidak ada di repo mana pun** (git history hanya punya varian form-login-siswa
+tanpa tab dan varian portal dua tombol). Tampilan direkonstruksi dari tangkapan layar pengguna.
+
+CSS pendukung (`.tabs`, `.tab-btn`, `.form-section`, `.forgot-row`, `.student-banner`,
+`.footer-badges`, `.footer-version`, `.alert`) sudah ada di `index.php`; hanya bagian HTML/JS
+yang dahulu diganti tombol tautan.
+
+### Tindakan (hanya `index.php`)
+| Bagian | Perubahan |
+|---|---|
+| Blok PHP atas | Tambah pemrosesan POST satu halaman: `peran=guru` â†’ `loginGuru()` â†’ `dashboard-guru.php`; `peran=siswa` â†’ `loginSiswa()` â†’ `input-token.php`; galat ditampilkan di `.alert`. Variabel `$tab` menentukan tab aktif setelah galat. |
+| Body | Ganti dua tombol tautan â†’ tablist `Guru`/`Siswa` + dua panel `<form>` (Guru: email/username+password+Lupa password; Siswa: NIS+password/token) + banner Mode Siswa + footer badges + Versi Prototype. |
+| Script | `switchTab()` nyata (ganti kelas `.active`, `aria-selected`, `display` panel, fokus isian pertama) dan `togglePw(id, tombol)`. |
+
+### Tetap aman (perbaikan blank putih tidak dikorbankan)
+- `require_once __DIR__ . '/auth-boot.php';` tetap di baris atas.
+- DB belum siap â†’ `pesan-db.php`, bukan HTTP 500.
+- Sesi aktif tetap dialihkan ke dashboard sesuai peran; `index.php?menu=1` untuk tetap di halaman login.
+
+### Verifikasi (lokal, Apache + MySQL XAMPP hidup)
+
+| uji | hasil |
+|---|---|
+| `php -l index.php` | No syntax errors |
+| keseimbangan tag | `<div>` 24/24, `<form>` 2/2 |
+| `GET index.php?menu=1` | 200 / 23.943 B |
+| penanda tampilan | Mode Siswa tersedia âœ…, Masuk sebagai Guru âœ…, Masuk sebagai Siswa âœ…, Versi Prototype âœ…, Mobile friendly âœ…, Lupa password âœ…, tab-guru/tab-siswa âœ… |
+| `POST peran=guru` | 302 â†’ `dashboard-guru.php` 200 / 41.001 B |
+| klik tab Siswa (browser) | panel Siswa tampil, tab aktif berpindah âœ… |
+
+> Catatan: `login-guru.php` dan `login-siswa.php` **tetap ada** (dipakai tautan "Lupa password?"
+> dan jalur langsung); `index.php` kini kembali menjadi pintu masuk utama bertab.
+
+---
+
+## 5. Berkas baru & berkas kunci
 
 | Berkas | Fungsi |
 |---|---|
@@ -180,21 +225,21 @@ if (empty($conn)) {
 
 ---
 
-## 5. Aturan yang harus dipegang pada pengeditan berikutnya
+## 6. Aturan yang harus dipegang pada pengeditan berikutnya
 
 1. **Jangan pakai `session_start()` mentah.** Selalu `require_once 'auth-boot.php';`
 2. **Jangan pakai `header('Location: ...')` + `exit` langsung** untuk halaman. Pakai `padi_kembali($url)`.
-3. **Halaman guru wajib** `wajibLoginGuru()`, halaman siswa `wajibLoginSiswa()` — jangan tertukar.
+3. **Halaman guru wajib** `wajibLoginGuru()`, halaman siswa `wajibLoginSiswa()` â€” jangan tertukar.
 4. **Bila menambah fungsi ke `koneksi.php`**, bungkus `if (!function_exists(...))` karena berkas ini
    dimuat dengan `require` (bukan `require_once`) di banyak tempat.
-5. **Uji sebelum menyatakan selesai** — minimal: `php -l <berkas>` lalu alur login lewat `curl.exe`:
-   `GET login-guru.php` → `POST action=login` → `GET dashboard-guru.php` (harus 302 → 200, bukan 500).
+5. **Uji sebelum menyatakan selesai** â€” minimal: `php -l <berkas>` lalu alur login lewat `curl.exe`:
+   `GET login-guru.php` â†’ `POST action=login` â†’ `GET dashboard-guru.php` (harus 302 â†’ 200, bukan 500).
 6. **Jangan mengubah tampilan halaman utama** tanpa konfirmasi; versi yang disetujui ada di
    `index-portal.php.bak` dan commit `6af66f9`.
 
 ---
 
-## 6. Cara menjalankan & menguji
+## 7. Cara menjalankan & menguji
 
 ### Lokal (XAMPP)
 
@@ -215,7 +260,7 @@ curl.exe -s -b $ck -c $ck -o NUL -d "action=login&username=guru&password=guru123
 curl.exe -s -b $ck -o NUL -w "%{http_code} %{size_download}`n" "$b/dashboard-guru.php"   # harap 200 41001
 ```
 
-> Catatan PowerShell 5.1: `Invoke-WebRequest` **tidak** punya `-SkipHttpErrorCheck` → gunakan `curl.exe`.
+> Catatan PowerShell 5.1: `Invoke-WebRequest` **tidak** punya `-SkipHttpErrorCheck` â†’ gunakan `curl.exe`.
 
 ### Tunnel Cloudflare (agar domain publik hidup)
 
@@ -227,15 +272,16 @@ Start-Process -FilePath $cf -ArgumentList @('tunnel','--no-autoupdate','run','--
 
 ---
 
-## 7. Hal yang perlu diperhatikan (belum selesai)
+## 8. Hal yang perlu diperhatikan (belum selesai)
 
-- ⚠️ **Connector Cloudflare berjalan sebagai proses biasa, bukan service** → mati saat PC restart
+- âš ï¸ **Connector Cloudflare berjalan sebagai proses biasa, bukan service** â†’ mati saat PC restart
   dan situs ikut mati. Untuk permanen, jalankan PowerShell **sebagai Administrator**:
   `cloudflared service install`
-- ⚠️ **Situs bergantung pada PC pengembangan hidup** (Apache :80 + MySQL :3306 + connector).
+- âš ï¸ **Situs bergantung pada PC pengembangan hidup** (Apache :80 + MySQL :3306 + connector).
   Rencana pindah ke CT 102: jalankan `pasang-tunnel-ct102.sh` + token yang sama.
-- ⚠️ **SSH ke server tidak terjangkau** dari PC ini (timeout ke `192.168.18.39`,
-  `sman1sumber.sch.id`, `8.215.13.99`). Satu-satunya jalan masuk: console Proxmox → `pct enter 102`.
-- ⚠️ `require 'koneksi.php'` (tanpa `_once`) masih ada di berkas lain — jaga `koneksi.php` tetap idempoten.
-- ⚠️ Berkas skrip bantu berikut belum di-commit (sengaja): `pasang-tunnel-ct102.sh`,
+- âš ï¸ **SSH ke server tidak terjangkau** dari PC ini (timeout ke `192.168.18.39`,
+  `sman1sumber.sch.id`, `8.215.13.99`). Satu-satunya jalan masuk: console Proxmox â†’ `pct enter 102`.
+- âš ï¸ `require 'koneksi.php'` (tanpa `_once`) masih ada di berkas lain â€” jaga `koneksi.php` tetap idempoten.
+- âš ï¸ Berkas skrip bantu berikut belum di-commit (sengaja): `pasang-tunnel-ct102.sh`,
   `perbaikan-ct102.sh`, `perintah-ct102.sh`, `perintah-pasang-tunnel.txt`.
+
