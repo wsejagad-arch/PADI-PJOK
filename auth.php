@@ -5,6 +5,76 @@
 require_once __DIR__ . '/koneksi.php';
 
 /* ============================================================
+   SESI & PENGALIH
+   ============================================================ */
+/**
+ * Pastikan sesi aktif. Dipanggil di SETIAP halaman lewat guard sehingga
+ * session_start() dan header redirect selalu berjalan di satu bagian berkas ini.
+ */
+if (!function_exists('padi_mulai_sesi')) {
+function padi_mulai_sesi()
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        @session_start();
+    }
+}
+}
+
+/**
+ * Berbagi sesi dengan folder lain di domain yang sama (mis. portal PintarHub).
+ * Aman: TIDAK mengubah cookie yang sudah ada, hanya menyempitkan path bila perlu.
+ */
+if (!function_exists('padi_berbagi_sesi')) {
+function padi_berbagi_sesi()
+{
+    if (session_status() !== PHP_SESSION_NONE || headers_sent()) return;
+    $p = session_get_cookie_params();
+    // '' = berlaku untuk seluruh domain (semua subfolder).
+    if ($p['path'] !== '' || (isset($p['samesite']) && $p['samesite'] !== 'Lax')) {
+        session_set_cookie_params(['lifetime' => (int)$p['lifetime'], 'path' => '', 'domain' => $p['domain'], 'secure' => (bool)$p['secure'], 'httponly' => (bool)$p['httponly'], 'samesite' => 'Lax']);
+    }
+}
+}
+
+/**
+ * URL halaman login sesuai tipe pengguna.
+ * Dipakai agar halaman guru TIDAK terlempar ke login siswa (dan sebaliknya).
+ */
+if (!function_exists('padi_url_login')) {
+function padi_url_login($tipe)
+{
+    return $tipe === 'guru' ? 'login-guru.php' : 'login-siswa.php';
+}
+}
+
+/**
+ * Redirect internal yang aman (header + cadangan HTML/meta bila header gagal).
+ * Bila header() gagal (output sudah terkirim), pengguna TIDAK dibiarkan
+ * melihat halaman putih — langsung diarahkan lewat meta refresh + tautan manual.
+ */
+if (!function_exists('padi_kembali')) {
+function padi_kembali($lokasi, $pesan = '')
+{
+    $lokasi = (string)$lokasi;
+    if (!headers_sent()) {
+        header('Location: ' . $lokasi);
+        header('Content-Type: text/html; charset=utf-8');
+    }
+    $tujuan = htmlspecialchars($lokasi, ENT_QUOTES, 'UTF-8');
+    $teks = $pesan !== '' ? htmlspecialchars($pesan, ENT_QUOTES, 'UTF-8') : 'Mengalihkan…';
+    echo '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8">'
+        . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<meta http-equiv="refresh" content="0;url=' . $tujuan . '">'
+        . '<title>Mengalihkan…</title></head>'
+        . '<body style="font-family:Inter,system-ui,sans-serif;padding:24px;text-align:center">'
+        . '<p>' . $teks . '</p><p><a href="' . $tujuan . '">Lanjutkan</a></p>'
+        . '<script>location.replace(' . json_encode($lokasi, JSON_UNESCAPED_SLASHES) . ');</script>'
+        . '</body></html>';
+    exit;
+}
+}
+
+/* ============================================================
    MIGRASI RINGAN (aman dijalankan berulang)
    - master_siswa: tambah kolom password (hash)
    - tabel guru: akun guru (username + password hash)
@@ -311,39 +381,36 @@ function loginGuru($conn, $username, $password)
    ============================================================ */
 function wajibLoginGuru()
 {
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    padi_mulai_sesi();
     if (empty($_SESSION['guru_id'])) {
-        header('Location: login-guru.php');
-        exit;
+        padi_kembali(padi_url_login('guru'), 'Sesi guru belum aktif. Silakan masuk kembali.');
     }
 }
 
 function wajibLoginSiswa()
 {
-    if (session_status() === PHP_SESSION_NONE) session_start();
-    
-    // Belum login sama sekali -> ke index
+    padi_mulai_sesi();
+
+    // Belum login sama sekali -> ke halaman login siswa
     if (empty($_SESSION['master_id'])) {
-        header('Location: index.php');
-        exit;
+        padi_kembali(padi_url_login('siswa'), 'Sesi siswa belum aktif. Silakan masuk kembali.');
     }
-    
+
     // Sudah login, tapi belum input token sesi -> ke input-token.php
     if (empty($_SESSION['siswa_id'])) {
-        header('Location: input-token.php');
-        exit;
+        padi_kembali('input-token.php', 'Masukkan token sesi dari guru untuk melanjutkan.');
     }
 }
 
 function isLoginGuru()
 {
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    padi_mulai_sesi();
     return !empty($_SESSION['guru_id']);
 }
 
 function isLoginSiswa()
 {
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    padi_mulai_sesi();
     // Dianggap login siswa utuh jika sudah mengisi token (punya siswa_id)
     return !empty($_SESSION['siswa_id']);
 }

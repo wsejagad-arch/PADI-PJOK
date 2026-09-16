@@ -1,9 +1,19 @@
 <?php
 // login-siswa.php — Login siswa: Nomor Induk + password (token dari guru)
-session_start();
 require_once 'koneksi.php';
 require_once 'auth.php';
-pastikanTabelAuth($conn);
+
+// Database belum siap → pesan jelas, bukan halaman putih.
+if (empty($conn)) {
+    require_once 'pesan-db.php';
+    padi_halaman_db_mati($padi_db_error ?? 'Database tidak dapat dihubungi.');
+}
+
+padi_berbagi_sesi();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $err = '';
 $show_token = false;
@@ -17,8 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $hasil = loginSiswa($conn, $_POST['dokumen'] ?? '', $_POST['password'] ?? '');
         if ($hasil['success']) {
             $_SESSION['token_sesi'] = $hasil['token'];
-            header('Location: login-siswa.php?token=1');
-            exit;
+            padi_kembali('login-siswa.php?token=1');
         }
         $err = $hasil['message'];
     }

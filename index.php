@@ -1,33 +1,44 @@
 <?php
-session_start();
-require_once 'koneksi.php';
-require_once 'auth.php';
-pastikanTabelAuth($conn);
+// index.php — Portal PADI-PJOK: satu pintu untuk guru & siswa.
+// Titik masuk aman (sesi dimulai lewat helper, bukan session_start() mentah).
+require_once 'auth-boot.php';
 
-if (isLoginGuru()) {
-    header('Location: dashboard-guru.php');
-    exit;
+// Bila database belum siap, jangan biarkan halaman putih: tampilkan panduan.
+if (empty($conn)) {
+    require_once 'pesan-db.php';
+    padi_halaman_db_mati($padi_db_error ?? 'Database tidak dapat dihubungi.');
 }
-if (isLoginSiswa()) {
-    header('Location: dashboard-siswa.php');
-    exit;
-}
-if (!empty($_SESSION['master_id']) && empty($_SESSION['siswa_id'])) {
-    header('Location: input-token.php');
-    exit;
+
+// Pengunjung yang masih punya sesi aktif diarahkan ke halaman utamanya.
+// (Buka index.php?menu=1 bila ingin tetap di portal meski sudah login.)
+$minta_menu = isset($_GET['menu']) || isset($_GET['pilih']);
+if ($minta_menu) {
+    // sengaja tetap menampilkan portal
+} elseif (!empty($_SESSION['guru_id'])) {
+    padi_kembali('dashboard-guru.php');
+} elseif (!empty($_SESSION['siswa_id'])) {
+    padi_kembali('dashboard-siswa.php');
+} elseif (!empty($_SESSION['master_id'])) {
+    padi_kembali('input-token.php');
 }
 
 $err = '';
+$peran_terpilih = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-    if ($action === 'login') {
-        $hasil = loginSiswa($conn, $_POST['dokumen'] ?? '', $_POST['password'] ?? '');
-        if ($hasil['success']) {
-            header('Location: input-token.php');
-            exit;
-        }
-        $err = $hasil['message'];
+    $peran_terpilih = strtolower(trim((string)($_POST['peran'] ?? '')));
+
+    // Pilihan GURU: jangan verifikasi ke tabel siswa — langsung ke login guru.
+    if ($peran_terpilih === 'guru') {
+        padi_kembali('login-guru.php');
     }
+
+    // Pilihan SISWA: verifikasi NIS + password, lalu minta token sesi.
+    $hasil = loginSiswa($conn, $_POST['dokumen'] ?? '', $_POST['password'] ?? '');
+    if ($hasil['success']) {
+        padi_kembali('input-token.php');
+    }
+    $err = $hasil['message'];
 }
 ?>
 <!DOCTYPE html>
@@ -267,10 +278,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     .alert svg { width:18px; height:18px; flex-shrink:0; margin-top:1px; }
 
+    /* ── Pilih peran (Guru / Siswa) ── */
+    .role-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+    .role-card {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; min-height: 64px; padding: 12px 12px;
+      background: var(--white); color: var(--text-dark);
+      border: 1.5px solid var(--border, #E5E7EB); border-radius: var(--radius-sm);
+      font-family: inherit; text-align: left; cursor: pointer;
+      transition: border-color .2s, box-shadow .2s, background .2s, transform .2s;
+    }
+    .role-card:hover { border-color: var(--blue-primary); transform: translateY(-1px); }
+    .role-card[aria-selected="true"] {
+      background: var(--blue-light); border-color: var(--blue-primary);
+      box-shadow: 0 4px 14px rgba(26,86,219,.16);
+    }
+    .role-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px;
+      background: var(--blue-mid); color: var(--blue-primary);
+    }
+    .role-icon svg { width: 20px; height: 20px; }
+    .role-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .role-text strong { font-size: 14px; font-weight: 700; }
+    .role-text small { font-size: 11px; color: var(--text-gray); line-height: 1.35; }
+    .role-arrow { margin-left: auto; color: var(--text-light); font-size: 16px; }
+
+    .hint { font-size: 12px; color: var(--text-gray); line-height: 1.55; margin: 0 0 14px; }
+    .catatan { font-size: 11.5px; color: var(--text-gray); line-height: 1.55; margin-top: 14px; text-align: center; }
+
     /* ── Responsive ── */
+    @media (max-width: 520px) {
+      .role-picker { grid-template-columns: 1fr; }
+      .role-text small { font-size: 11.5px; }
+    }
     @media (max-width: 440px) {
       .body { padding: 16px 18px 20px; }
       .hero-wrap { height: 170px; }
+      .btn-submit { min-height: 48px; }
     }
   </style>
 </head>
@@ -310,12 +355,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
     <?php endif; ?>
 
-    <!-- ── Form Login Siswa ── -->
-    <form method="post" id="form-login" novalidate>
-      <input type="hidden" name="action" value="login"/>
+    <!-- ── Pilih peran: Guru atau Siswa ── -->
+    <div class="role-picker" id="role-picker" role="tablist" aria-label="Pilih peran">
 
-      <div class="form-group">
-        <label class="form-label" for="dokumen">Nomor Induk / NIS</label>
+      <button type="button" class="role-card" id="kartu-guru" role="tab"
+              aria-selected="false" data-peran="guru">
+        <span class="role-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M3 7l9-4 9 4-9 4-9-4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 9.5V15c0 1.7 2.2 3 5 3s5-1.3 5-3V9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <span class="role-text">
+          <strong>Guru</strong>
+          <small>Kelola sesi, token &amp; penilaian</small>
+        </span>
+        <span class="role-arrow" aria-hidden="true">&rarr;</span>
+      </button>
+
+      <button type="button" class="role-card" id="kartu-siswa" role="tab"
+              aria-selected="true" data-peran="siswa">
+        <span class="role-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <span class="role-text">
+          <strong>Siswa</strong>
+          <small>Masuk kelas dengan token sesi</small>
+        </span>
+        <span class="role-arrow" aria-hidden="true">&rarr;</span>
+      </button>
+    </div>
+
+    <!-- ── Form Login ── -->
+    <form method="post" id="form-login" novalidate>
+      <input type="hidden" name="peran" id="peran" value="siswa"/>
+
+      <div class="form-group" id="grup-dokumen">
+        <label class="form-label" for="dokumen" id="label-identitas">Nomor Induk / NIS</label>
         <div class="input-wrap">
           <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M7 9h4M7 13h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="10" r="2" stroke="currentColor" stroke-width="1.8"/></svg></span>
           <input class="form-input" type="text" id="dokumen" name="dokumen"
@@ -324,23 +397,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" id="grup-password">
         <label class="form-label" for="password">Password</label>
         <div class="input-wrap">
           <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           <input class="form-input" type="password" id="password" name="password"
-                 placeholder="Masukkan password" autocomplete="current-password" required/>
+                 placeholder="Masukkan password" autocomplete="current-password"/>
           <button type="button" class="toggle-pw" aria-label="Tampilkan password" onclick="togglePw()">
             <svg viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
           </button>
         </div>
       </div>
 
+      <p class="hint" id="hint-guru" hidden>Halaman login guru dibuka terpisah (username &amp; password).</p>
+
       <button type="submit" class="btn-submit" id="btn-masuk">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="10 17 15 12 10 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Login
+        <span id="teks-tombol">Login Siswa</span>
       </button>
     </form>
+
+    <p class="catatan">Password siswa pertama kali = Nomor Induk. Setelah masuk, masukkan token sesi dari guru.</p>
 
   </div><!-- /body -->
 
@@ -348,10 +425,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script>
   function togglePw() {
-    const el = document.getElementById('password');
+    var el = document.getElementById('password');
     el.type = el.type === 'password' ? 'text' : 'password';
     el.focus();
   }
+
+  // Pengalih peran: kartu Guru membuka halaman login guru,
+  // kartu Siswa menampilkan form NIS + password di portal ini.
+  (function () {
+    var peranInput = document.getElementById('peran');
+    var kartuGuru  = document.getElementById('kartu-guru');
+    var kartuSiswa = document.getElementById('kartu-siswa');
+    var grupDok    = document.getElementById('grup-dokumen');
+    var grupPass   = document.getElementById('grup-password');
+    var hintGuru   = document.getElementById('hint-guru');
+    var labelId    = document.getElementById('label-identitas');
+    var tombol     = document.getElementById('teks-tombol');
+    var form       = document.getElementById('form-login');
+
+    function pilih(peran) {
+      var guru = peran === 'guru';
+      peranInput.value = guru ? 'guru' : 'siswa';
+      kartuGuru.setAttribute('aria-selected', guru ? 'true' : 'false');
+      kartuSiswa.setAttribute('aria-selected', guru ? 'false' : 'true');
+      grupDok.hidden = guru;
+      grupPass.hidden = guru;
+      hintGuru.hidden = !guru;
+      tombol.textContent = guru ? 'Lanjut ke Login Guru' : 'Login Siswa';
+      if (!guru) {
+        labelId.textContent = 'Nomor Induk / NIS';
+        document.getElementById('dokumen').placeholder = 'Contoh: 12345';
+      }
+    }
+
+    kartuGuru.addEventListener('click', function () { pilih('guru'); });
+    kartuSiswa.addEventListener('click', function () { pilih('siswa'); });
+
+    form.addEventListener('submit', function (e) {
+      if (peranInput.value !== 'guru') {
+        var d = document.getElementById('dokumen').value.trim();
+        var p = document.getElementById('password').value.trim();
+        if (!d || !p) {
+          e.preventDefault();
+          alert('Nomor induk dan password wajib diisi.');
+          return;
+        }
+        var b = document.getElementById('btn-masuk');
+        b.disabled = true;
+        tombol.textContent = 'Memverifikasi...';
+      }
+    });
+
+    pilih(<?= $peran_terpilih === 'guru' ? "'guru'" : "'siswa'" ?>);
+  })();
 </script>
 
 </body>

@@ -1,14 +1,23 @@
 <?php
 // login-guru.php — Halaman login guru (terpisah dari siswa)
-session_start();
 require_once 'koneksi.php';
 require_once 'auth.php';
-pastikanTabelAuth($conn);
+
+// Database belum siap → pesan jelas, bukan halaman putih.
+if (empty($conn)) {
+    require_once 'pesan-db.php';
+    padi_halaman_db_mati($padi_db_error ?? 'Database tidak dapat dihubungi.');
+}
+
+padi_berbagi_sesi();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Sudah login? langsung ke dashboard
 if (!empty($_SESSION['guru_id'])) {
-    header('Location: dashboard-guru.php');
-    exit;
+    padi_kembali('dashboard-guru.php');
 }
 
 $err = '';
@@ -18,8 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'login') {
         $hasil = loginGuru($conn, $_POST['username'] ?? '', $_POST['password'] ?? '');
         if ($hasil['success']) {
-            header('Location: dashboard-guru.php');
-            exit;
+            padi_kembali('dashboard-guru.php');
         }
         $err = $hasil['message'];
     }
