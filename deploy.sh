@@ -55,16 +55,64 @@ apt-get install -y -qq \
   "php${PHP_VER}-fpm" "php${PHP_VER}-cli" "php${PHP_VER}-mysql" >/dev/null
 # Ekstensi opsional: pasang satu per satu agar paket yang tidak tersedia
 # (mis. php8.2-json yang sudah menyatu ke core di Debian 12) tidak menggagalkan seluruh deploy.
-for EXT in curl mbstring xml zip gd intl json; do
+for EXT in curl mbstring xml zip gd intl; do
   apt-get install -y -qq "php${PHP_VER}-${EXT}" >/dev/null 2>&1 || \
     warn "ekstensi php${PHP_VER}-${EXT} tidak tersedia (dilewati)."
 done
+# json menyatu ke core sejak PHP 8; hanya dipasang bila memang tersedia.
+apt-get install -y -qq "php${PHP_VER}-json" >/dev/null 2>&1 || true
 info "Nginx, MariaDB, PHP-FPM terpasang."
 
+# Pastikan binari PHP benar-benar ada SEBELUM melanjutkan.
+command -v php >/dev/null 2>&1 || fail "Binari php tidak ditemukan setelah pemasangan."
+php -v >/dev/null 2>&1 || fail "PHP gagal dijalankan. Periksa pemasangan php${PHP_VER}."
+info "PHP siap: $(php -r 'echo PHP_VERSION;')"
+
+# --------------------------- 2. Ambil kode aplikasi --------------------------
+# Dijalankan LEBIH AWAL (sebelum konfigurasi layanan) supaya bila ada langkah
+# lanjutan yang gagal, versi aplikasi di server tidak tertinggal versi lama.
+warn "Mengambil kode aplikasi..."
+mkdir -p "$(dirname "$APP_DIR")"
+SLS_PULL=0
+SLS_BASE=""
+if [ -d "$APP_DIR/.git" ]; then
+  git -C "$APP_DIR" fetch --all --quiet
+  SLS_BASE="$(git -C "$APP_DIR" rev-parse HEAD 2>/dev/null || echo '')"
+  if git -C "$APP_DIR" reset --hard "origin/main" --quiet; then
+    SLS_PULL=1
+    info "Kode diperbarui (git pull)."
+  else
+    warn "git reset gagal; kode lama dipertahankan."
+  fi
+elif [ -d "$APP_DIR" ] && [ -n "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
+  warn "$APP_DIR sudah ada dan bukan repo git — isi dipertahankan, berkas disalin ulang."
+  cp -r "$(pwd)"/* "$APP_DIR"/ 2>/dev/null || true
+else
+  if git clone --quiet "$GITHUB_REPO" "$APP_DIR"; then
+    SLS_PULL=1
+    info "Kode di-clone dari $GITHUB_REPO"
+  else
+    fail "Gagal mengambil kode dari $GITHUB_REPO (periksa jaringan/DNS server ini)."
+  fi
+fi
+
+# Pemulihan otomatis: bila penarikan kode gagal padahal direktori bukan repo git
+# (kondisi yang membuat produksi tertinggal versi lama), paksa ambil ulang.
+if [ "$SLS_PULL" -ne 1 ] && [ ! -d "$APP_DIR/.git" ]; then
+  warn "Penarikan kode gagal — memaksa salinan bersih dari repo."
+  if [ -n "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
+    mv "$APP_DIR" "${APP_DIR}.lama.$(date +%Y%m%d%H%M%S)" || true
+  fi
+  git clone --quiet "$GITHUB_REPO" "$APP_DIR" || fail "Gagal mengambil kode dari $GITHUB_REPO."
+  SLS_PULL=1
+  info "Kode diambil ulang secara bersih."
+fi
+
+# --------------------------- 3. Paket layanan --------------------------------
 systemctl enable --now nginx mariadb >/dev/null 2>&1 || true
 systemctl enable --now "php${PHP_VER}-fpm" >/dev/null 2>&1 || true
 
-# --------------------------- 2. Database -------------------------------------
+# --------------------------- 4. Database -------------------------------------
 warn "Menyiapkan database..."
 DB_PASS="${DB_PASS:-$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)}"
 mysql --protocol=socket -uroot <<SQL
@@ -76,22 +124,7 @@ FLUSH PRIVILEGES;
 SQL
 info "Database '${DB_NAME}' & user '${DB_USER}' siap."
 
-# --------------------------- 3. Ambil kode aplikasi --------------------------
-warn "Mengambil kode aplikasi..."
-mkdir -p "$(dirname "$APP_DIR")"
-if [ -d "$APP_DIR/.git" ]; then
-  git -C "$APP_DIR" fetch --all --quiet
-  git -C "$APP_DIR" reset --hard "origin/main" --quiet
-  info "Kode diperbarui (git pull)."
-elif [ -d "$APP_DIR" ] && [ -n "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
-  warn "$APP_DIR sudah ada dan bukan repo git — isi dipertahankan, berkas disalin ulang."
-  cp -r "$(pwd)"/* "$APP_DIR"/ 2>/dev/null || true
-else
-  git clone --quiet "$GITHUB_REPO" "$APP_DIR"
-  info "Kode di-clone dari $GITHUB_REPO"
-fi
-
-# --------------------------- 4. Berkas .env ----------------------------------
+# --------------------------- 5. Berkas .env ----------------------------------
 ENV_FILE="$APP_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then
   cat > "$ENV_FILE" <<ENV
@@ -112,7 +145,7 @@ else
 fi
 chmod 640 "$ENV_FILE"
 
-# --------------------------- 5. Setup skema DB -------------------------------
+# --------------------------- 6. Setup skema DB -------------------------------
 warn "Membuat skema database (setup_db.php)..."
 if php -r '
 require "'"$APP_DIR"'/koneksi.php";
@@ -132,7 +165,7 @@ else
   warn "Koneksi DB dari PHP gagal — periksa .env, lalu buka /setup_db.php di browser."
 fi
 
-# --------------------------- 6. Nginx vhost ----------------------------------
+# --------------------------- 7. Nginx vhost ----------------------------------
 warn "Menulis konfigurasi Nginx untuk ${DOMAIN}..."
 SOCK="/run/php/php${PHP_VER}-fpm.sock"
 [ -S "$SOCK" ] || SOCK="/var/run/php/php${PHP_VER}-fpm.sock"
@@ -200,14 +233,14 @@ nginx -t >/dev/null 2>&1 || fail "Konfigurasi Nginx tidak valid."
 systemctl reload nginx
 info "Nginx aktif untuk http://${DOMAIN}"
 
-# --------------------------- 7. Izin berkas ----------------------------------
+# --------------------------- 8. Izin berkas ----------------------------------
 chown -R www-data:www-data "$APP_DIR"
 find "$APP_DIR" -type d -exec chmod 755 {} \;
 find "$APP_DIR" -type f -exec chmod 644 {} \;
 chmod 640 "$ENV_FILE"
 info "Izin berkas diatur."
 
-# --------------------------- 8. Firewall -------------------------------------
+# --------------------------- 9. Firewall -------------------------------------
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
   ufw allow 80/tcp  >/dev/null 2>&1 || true
   ufw allow 443/tcp >/dev/null 2>&1 || true
