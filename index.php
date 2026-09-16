@@ -110,13 +110,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     /* ── Card ── */
+    /* Header (logo + ilustrasi) sengaja DATAR/PERSEGI di bagian atas,
+       persis seperti gambar acuan — bukan melengkung. */
     .card {
       position: relative;
       z-index: 1;
       width: 100%;
       max-width: 420px;
       background: var(--white);
-      border-radius: 28px;
+      border-radius: 0 0 20px 20px;
       box-shadow: var(--shadow-lg);
       overflow: hidden;
       animation: slideUp .5s cubic-bezier(.22,1,.36,1) both;
@@ -127,10 +129,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Header ── */
+    /* ── Header (datar, tanpa lengkung di atas) ── */
     .header {
-      padding: 28px 28px 0;
+      padding: 18px 24px 14px;
       text-align: center;
+      background: var(--white);
+      border-radius: 0;
     }
 
     .logo-row {
@@ -142,13 +146,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     .logo-icon {
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
       flex-shrink: 0;
     }
 
     .logo-text {
-      font-size: 28px;
+      font-size: 25px;
       font-weight: 800;
       color: var(--blue-primary);
       letter-spacing: -.5px;
@@ -161,26 +165,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       margin-bottom: 0;
     }
 
-    /* ── Hero illustration ── */
+    /* ── Hero illustration (datar, penuh lebar, tanpa lengkung) ── */
     .hero-wrap {
-      margin: 16px 0 0;
-      height: 200px;
+      margin: 0;
+      height: 132px;
+      width: 100%;
       overflow: hidden;
       position: relative;
+      border-radius: 0;
       background: linear-gradient(180deg, #EFF6FF 0%, #DBEAFE 100%);
     }
 
     .hero-wrap img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
-      object-position: center top;
+      object-fit: contain;
+      object-position: center center;
       display: block;
     }
 
     /* ── Body ── */
     .body {
-      padding: 20px 24px 24px;
+      padding: 16px 20px 18px;
     }
 
     /* ── Welcome banner ── */
@@ -191,8 +197,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       background: var(--blue-light);
       border: 1.5px solid var(--blue-mid);
       border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      margin-bottom: 20px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
     }
 
     .welcome-icon {
@@ -228,7 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       background: #F1F5F9;
       border-radius: 12px;
       padding: 4px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .tab-btn {
@@ -259,9 +265,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .tab-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 
     /* ── Form ── */
-    .form-section { display: flex; flex-direction: column; gap: 16px; }
+    .form-section { display: flex; flex-direction: column; gap: 13px; }
 
-    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
 
     .form-label {
       font-size: 13px;
@@ -287,7 +293,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     .form-input {
       width: 100%;
-      padding: 12px 14px 12px 42px;
+      padding: 11px 14px 11px 42px;
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
       font-family: inherit;
@@ -344,7 +350,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 14px;
+      padding: 13px;
       background: var(--blue-primary);
       color: var(--white);
       border: none;
@@ -355,7 +361,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       cursor: pointer;
       box-shadow: 0 6px 20px rgba(26,86,219,.35);
       transition: all .25s cubic-bezier(.22,1,.36,1);
-      margin-top: 4px;
+      margin-top: 2px;
       letter-spacing: .1px;
     }
 
@@ -377,8 +383,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       background: var(--blue-light);
       border: 1.5px solid var(--blue-mid);
       border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      margin-top: 16px;
+      padding: 12px 14px;
+      margin-top: 14px;
       cursor: pointer;
       transition: background .2s, border-color .2s;
       text-decoration: none;
@@ -427,8 +433,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
-      padding: 14px 24px;
+      gap: 14px;
+      padding: 11px 20px;
       border-top: 1px solid var(--border);
       flex-wrap: wrap;
     }
@@ -451,7 +457,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       align-items: center;
       justify-content: center;
       gap: 5px;
-      padding: 10px;
+      padding: 8px;
       font-size: 11px;
       font-weight: 500;
       color: var(--text-light);
@@ -485,9 +491,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .toast.show { transform: translateX(-50%) translateY(0); }
 
     /* ── Responsive ── */
+    /* Di layar kecil ilustrasi dikecilkan (bukan dibesarkan) supaya
+       seluruh kartu login tetap muat satu layar seperti gambar acuan. */
     @media (max-width: 440px) {
-      .body { padding: 16px 18px 20px; }
-      .hero-wrap { height: 170px; }
+      .body { padding: 14px 16px 16px; }
+      .header { padding: 14px 18px 12px; }
+      .logo-icon { width: 32px; height: 32px; }
+      .logo-text { font-size: 22px; }
+      .logo-subtitle { font-size: 11.5px; }
+      .hero-wrap { height: 112px; }
+      .welcome-banner { padding: 10px 12px; margin-bottom: 13px; }
+      .welcome-text h2 { font-size: 13.5px; }
+      .welcome-text p { font-size: 11.5px; }
+      .tabs { margin-bottom: 13px; }
+      .tab-btn { padding: 9px 10px; font-size: 13.5px; }
+      .form-section { gap: 11px; }
+      .btn-submit { padding: 12px; font-size: 14.5px; }
+      .student-banner { padding: 10px 12px; margin-top: 12px; }
+      .student-banner-icon { width: 34px; height: 34px; }
+      .student-banner-icon svg { width: 19px; height: 19px; }
+      .footer-badges { gap: 10px; padding: 9px 14px; }
+      .badge { font-size: 10px; }
+    }
+
+    /* Layar sangat pendek (mis. HP kecil/lanskap): sembunyikan ilustrasi
+       agar tombol utama tetap terlihat tanpa menggulir. */
+    @media (max-height: 700px) {
+      .hero-wrap { display: none; }
     }
   </style>
 </head>
