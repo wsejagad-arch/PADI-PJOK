@@ -16,7 +16,8 @@ verifikasinya. Ditulis agar sesi berikutnya tidak perlu mengulang penyelidikan.
 
 | # | Tanggal | Commit | Perubahan | Status |
 |---|---|---|---|---|
-| 6 | 16 Sep 2026 | `6233f62` | ✅ **Produksi diperbaiki: tampilan login baru LIVE** (sebab = `cloudflared` mati) + gate secret `deploy.yml` diperbaiki | ✅ terverifikasi publik |
+| 7 | 16 Sep 2026 | `7227105` | ✅ **CT 102 (Proxmox) diperbarui** — dari `e906449` → `7227105` (lihat bagian 6) | ✅ terverifikasi di CT |
+| 6 | 16 Sep 2026 | `6233f62` | Produksi diperbaiki: tampilan login baru LIVE + gate secret `deploy.yml` | ✅ terverifikasi publik |
 | 5 | 16 Sep 2026 | `6233f62` | Pulihkan tampilan login satu halaman (tab Guru/Siswa, form, banner mode siswa, footer) | ✅ terverifikasi lokal |
 | 4 | 16 Sep 2026 | `6af66f9` | Kembalikan halaman utama ke tampilan awal (header sambutan + tombol Login Guru/Siswa) | âœ… terverifikasi |
 | 3 | 16 Sep 2026 | `f8cf6a9` | Perbaiki `deploy.sh` agar satu paket hilang tidak menggagalkan deploy | âœ… terverifikasi |
@@ -213,7 +214,7 @@ yang dahulu diganti tombol tautan.
 
 ---
 
-## 5. PENYEBAB SEBENARNYA "server belum berubah" — 16 Sep 2026
+## 5. PENYEBAB SEBENARNYA "tampilan tidak berubah di server" — 16 Sep 2026
 
 ### Gejala
 Setelah `git push` (`6233f62`), situs `padipjok.pintarhub.com` **masih menampilkan versi lama**,
@@ -289,7 +290,77 @@ Start-Process $cf -ArgumentList @('tunnel','--no-autoupdate','run','--token',$to
 
 ---
 
-## 6. Berkas baru & berkas kunci
+## 6. CT 102 (server Proxmox terpisah) diperbarui — 16 Sep 2026
+
+### Temuan penting
+Ternyata ada **DUA origin** yang menyajikan aplikasi ini:
+
+| Origin | Isi `index.php?menu=1` | Keterangan |
+|---|---|---|
+| PC pengembangan (XAMPP) via Cloudflare Tunnel | **23.943 B** | inilah yang melayani `padipjok.pintarhub.com` sekarang |
+| **CT 102** di Proxmox `103.131.217.1` | **23.250 B** | server terpisah, tadinya tertinggal jauh |
+
+Catatan: Proxmox-nya di **`https://103.131.217.1:8006`** — **bukan** `192.168.18.39`
+(IP itu tidak ada di LAN). Node `promox`; CT 100 = SERVERPINTARHUB, 101 = ai-agent,
+102 = **padipjok**.
+
+### Kondisi CT 102 sebelum diperbaiki
+- `git log` → stuck di commit **`e906449`** (belum pernah menarik `8411c0a`, `6af66f9`,
+  `6233f62`, `7227105`).
+- `index.php` = 11.242 B; `auth-boot.php` **tidak ada** → itu sebabnya situs "tidak berubah"
+  bila dilihat dari CT.
+
+### Langkah yang dijalankan (lewat Console Proxmox CT 102)
+
+```bash
+# 1. WAJIB lebih dulu — tanpa ini git menolak:
+git config --global --add safe.directory /var/www/padipjok
+
+# 2. Tarik versi terbaru
+cd /var/www/padipjok && git fetch --all -q && git reset --hard origin/main
+
+# 3. WAJIB — git reset membuat berkas milik root mode 600,
+#    sehingga web server TIDAK BISA membacanya:
+chown -R www-data:www-data .
+find . -type d -exec chmod 755 {} \;
+find . -type f -name "*.php" -exec chmod 644 {} \;
+
+# 4. Muat ulang layanan
+systemctl reload nginx && systemctl restart php*-fpm
+```
+
+### Hasil verifikasi di CT 102
+
+| uji | hasil |
+|---|---|
+| `git log --oneline -1` | **`7227105`** (dari `e906449`) ✅ |
+| `php -v` | PHP **8.2.33** ✅ |
+| `php -l` 5 berkas kunci | **tanpa galat** ✅ |
+| hak akses | `www-data:www-data`, `-rw-r--r--` ✅ |
+| layanan | nginx + php-fpm **active** ✅ |
+| `curl http://127.0.0.1/index.php?menu=1` | **200 / 23.250 B** ✅ |
+| `.env` | `DB_NAME=padi_pjok`, `APP_URL=https://padipjok.pintarhub.com`, `APP_ENV=production` ✅ |
+
+### Cara masuk CT 102 dari sesi agen
+Tab browser Proxmox → menu **Console** pada CT 102. Terminal-nya berbasis **canvas**,
+sehingga teksnya **tidak terbaca** lewat snapshot/DOM — gunakan **tangkapan layar** untuk
+membaca keluaran, dan ketik perintah ke kotak `Terminal input`.
+
+### ⚠️ Penting: domain publik saat ini dilayani PC lokal, bukan CT 102
+Bila ingin **CT 102** yang melayani `padipjok.pintarhub.com`: pindahkan connector
+`cloudflared` ke CT 102 (jalankan `pasang-tunnel-ct102.sh` + token sama) atau ubah route
+tunnel ke IP CT 102, lalu **matikan** connector di PC lokal agar tidak berebut origin.
+
+Sidik jari cepat untuk tahu origin mana yang aktif:
+
+```powershell
+curl.exe -s -o NUL -w "%{http_code} %{size_download}" -H "Host: padipjok.pintarhub.com" http://127.0.0.1/PADI/index.php?menu=1
+# 23.943 = PC lokal ; 23.250 = CT 102
+```
+
+---
+
+## 7. Berkas baru & berkas kunci
 
 | Berkas | Fungsi |
 |---|---|
@@ -302,7 +373,7 @@ Start-Process $cf -ArgumentList @('tunnel','--no-autoupdate','run','--token',$to
 
 ---
 
-## 7. Aturan yang harus dipegang pada pengeditan berikutnya
+## 8. Aturan yang harus dipegang pada pengeditan berikutnya
 
 1. **Jangan pakai `session_start()` mentah.** Selalu `require_once 'auth-boot.php';`
 2. **Jangan pakai `header('Location: ...')` + `exit` langsung** untuk halaman. Pakai `padi_kembali($url)`.
@@ -316,7 +387,7 @@ Start-Process $cf -ArgumentList @('tunnel','--no-autoupdate','run','--token',$to
 
 ---
 
-## 8. Cara menjalankan & menguji
+## 9. Cara menjalankan & menguji
 
 ### Lokal (XAMPP)
 
@@ -349,7 +420,7 @@ Start-Process -FilePath $cf -ArgumentList @('tunnel','--no-autoupdate','run','--
 
 ---
 
-## 9. Hal yang perlu diperhatikan (belum selesai)
+## 10. Hal yang perlu diperhatikan (belum selesai)
 
 - âš ï¸ **Connector Cloudflare berjalan sebagai proses biasa, bukan service** â†’ mati saat PC restart
   dan situs ikut mati. Untuk permanen, jalankan PowerShell **sebagai Administrator**:
