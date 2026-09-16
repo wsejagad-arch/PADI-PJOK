@@ -16,7 +16,8 @@ verifikasinya. Ditulis agar sesi berikutnya tidak perlu mengulang penyelidikan.
 
 | # | Tanggal | Commit | Perubahan | Status |
 |---|---|---|---|---|
-| 7 | 16 Sep 2026 | `7227105` | ✅ **CT 102 (Proxmox) diperbarui** — dari `e906449` → `7227105` (lihat bagian 6) | ✅ terverifikasi di CT |
+| 8 | 16 Sep 2026 | `8b95036` | Header login dibuat **datar/persegi** (tidak melengkung) + rapikan agar muat satu layar HP | ✅ terverifikasi publik & CT |
+| 7 | 16 Sep 2026 | `7227105` | CT 102 (Proxmox) diperbarui — dari `e906449` → `7227105` (lihat bagian 6) | ✅ terverifikasi di CT |
 | 6 | 16 Sep 2026 | `6233f62` | Produksi diperbaiki: tampilan login baru LIVE + gate secret `deploy.yml` | ✅ terverifikasi publik |
 | 5 | 16 Sep 2026 | `6233f62` | Pulihkan tampilan login satu halaman (tab Guru/Siswa, form, banner mode siswa, footer) | ✅ terverifikasi lokal |
 | 4 | 16 Sep 2026 | `6af66f9` | Kembalikan halaman utama ke tampilan awal (header sambutan + tombol Login Guru/Siswa) | âœ… terverifikasi |
@@ -360,7 +361,47 @@ curl.exe -s -o NUL -w "%{http_code} %{size_download}" -H "Host: padipjok.pintarh
 
 ---
 
-## 7. Berkas baru & berkas kunci
+## 7. Header login dibuat datar/persegi — commit `8b95036` (16 Sep 2026)
+
+### Permintaan
+Header pada halaman login **jangan melengkung** — harus persis seperti gambar acuan
+(logo + sub-judul + ilustrasi sebagai pita datar penuh lebar).
+
+### Penyebab lengkung
+`.card` memakai `border-radius: 28px` + `overflow: hidden`, sehingga sudut kiri-atas dan
+kanan-atas ikut terpotong melengkung, termasuk area header/ilustrasi.
+
+### Perbaikan (hanya CSS di `index.php`)
+
+| Elemen | Sebelum | Sesudah |
+|---|---|---|
+| `.card` | `border-radius: 28px` | **`border-radius: 0 0 20px 20px`** (datar di atas) |
+| `.header` | `padding: 28px 28px 0` | `padding: 18px 24px 14px`, `border-radius: 0` |
+| `.hero-wrap` | `margin: 16px 0 0; height: 200px` | `margin: 0; height: 132px`, `border-radius: 0` |
+| `.hero-wrap img` | `object-fit: cover` | `object-fit: contain` (seluruh ilustrasi terlihat) |
+| jarak form | `gap: 16px`, padding 20-24px | `gap: 13px`, padding 16-20px |
+
+### ⚠️ Jebakan yang ditemukan
+Media query lama `@media (max-width: 440px) { .hero-wrap { height: 170px } }` justru
+**MEMBESARKAN** ilustrasi di layar HP, sehingga kartu login lebih tinggi daripada layar.
+Diperbaiki menjadi **mengecil** (112px) sekaligus mengecilkan padding, ukuran logo, dan
+huruf. Ditambah `@media (max-height: 700px) { .hero-wrap { display: none } }` agar tombol
+utama tetap terlihat pada layar pendek.
+
+### Verifikasi
+
+| uji | hasil |
+|---|---|
+| `php -l index.php` | tanpa galat ✅ |
+| `border-radius` header (360/390/414px) | **0px** di semua ukuran ✅ |
+| tombol `btn-submit` terlihat di viewport | selalu terlihat ✅ |
+| muat satu layar (390×844 & 414×896) | ya ✅ |
+| publik `index.php?menu=1` | **200 / 25.423 B**; `border-radius: 28px` sudah tidak ada ✅ |
+| CT 102 | HEAD `8b95036`, `index.php` 27.102 B `www-data`, lokal **200 / 24.700 B** ✅ |
+
+---
+
+## 8. Berkas baru & berkas kunci
 
 | Berkas | Fungsi |
 |---|---|
@@ -373,7 +414,7 @@ curl.exe -s -o NUL -w "%{http_code} %{size_download}" -H "Host: padipjok.pintarh
 
 ---
 
-## 8. Aturan yang harus dipegang pada pengeditan berikutnya
+## 9. Aturan yang harus dipegang pada pengeditan berikutnya
 
 1. **Jangan pakai `session_start()` mentah.** Selalu `require_once 'auth-boot.php';`
 2. **Jangan pakai `header('Location: ...')` + `exit` langsung** untuk halaman. Pakai `padi_kembali($url)`.
@@ -383,11 +424,13 @@ curl.exe -s -o NUL -w "%{http_code} %{size_download}" -H "Host: padipjok.pintarh
 5. **Uji sebelum menyatakan selesai** â€” minimal: `php -l <berkas>` lalu alur login lewat `curl.exe`:
    `GET login-guru.php` â†’ `POST action=login` â†’ `GET dashboard-guru.php` (harus 302 â†’ 200, bukan 500).
 6. **Jangan mengubah tampilan halaman utama** tanpa konfirmasi; versi yang disetujui ada di
-   `index-portal.php.bak` dan commit `6af66f9`.
-
+   `index-portal.php.bak` dan commit `6af66f9`.7. **`index.php` SENGAJA datar di bagian atas** (`border-radius: 0 0 20px 20px`).
+   Jangan kembalikan `border-radius: 28px` — itu membuat header melengkung dan ditolak pengguna.
+8. **Mengubah tampilan login berarti mengubah DUA tempat**: PC lokal (otomatis) **dan CT 102**
+   (`git reset --hard origin/main` + `chown -R www-data:www-data .` lalu `chmod 644`).
 ---
 
-## 9. Cara menjalankan & menguji
+## 10. Cara menjalankan & menguji
 
 ### Lokal (XAMPP)
 
@@ -420,7 +463,7 @@ Start-Process -FilePath $cf -ArgumentList @('tunnel','--no-autoupdate','run','--
 
 ---
 
-## 10. Hal yang perlu diperhatikan (belum selesai)
+## 11. Hal yang perlu diperhatikan (belum selesai)
 
 - âš ï¸ **Connector Cloudflare berjalan sebagai proses biasa, bukan service** â†’ mati saat PC restart
   dan situs ikut mati. Untuk permanen, jalankan PowerShell **sebagai Administrator**:
