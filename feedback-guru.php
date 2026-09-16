@@ -1,6 +1,16 @@
 <?php
 require_once 'auth.php';
 wajibLoginGuru();
+require_once 'koneksi.php';
+
+// Ambil video dari siswa untuk ditinjau guru (Mock data untuk demo, misalnya siswa_id = 1)
+$siswa_id_demo = 1; 
+$cek_video = $conn->prepare("SELECT video_path FROM penilaian_psikomotor WHERE siswa_id = ?");
+$cek_video->bind_param("i", $siswa_id_demo);
+$cek_video->execute();
+$res_vid = $cek_video->get_result();
+$video_path = $res_vid->num_rows > 0 ? $res_vid->fetch_assoc()['video_path'] : null;
+$cek_video->close();
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -193,6 +203,20 @@ wajibLoginGuru();
         <div class="r-score-val pink" style="font-size:12px">Masuk</div>
       </div>
     </div>
+  </div>
+
+  <!-- Video Praktik Siswa -->
+  <div class="ringkasan-card anim" style="margin-bottom:14px; padding:16px;">
+    <p class="section-title">Video Praktik Siswa</p>
+    <?php if (!empty($video_path)): ?>
+      <div style="border-radius:10px; overflow:hidden; border:1px solid var(--border); height:220px; background:#000;">
+        <iframe src="<?= htmlspecialchars($video_path) ?>" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
+      </div>
+    <?php else: ?>
+      <div style="background:var(--bg); border:1px dashed var(--border); border-radius:10px; padding:20px; text-align:center;">
+        <p style="font-size:12px; color:var(--text-3);">Siswa belum menautkan video praktik.</p>
+      </div>
+    <?php endif; ?>
   </div>
 
   <!-- Temuan Utama + Bantuan AI -->

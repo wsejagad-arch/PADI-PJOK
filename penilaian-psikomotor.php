@@ -27,6 +27,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     echo json_encode(['success' => true]);
     exit;
 }
+
+require_once 'koneksi.php';
+$siswa_id = $_SESSION['siswa_id'];
+$cek_video = $conn->prepare("SELECT video_path FROM penilaian_psikomotor WHERE siswa_id = ?");
+$cek_video->bind_param("i", $siswa_id);
+$cek_video->execute();
+$res_vid = $cek_video->get_result();
+$video_path = $res_vid->num_rows > 0 ? $res_vid->fetch_assoc()['video_path'] : null;
+$cek_video->close();
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -215,18 +224,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
       Video Praktik Saya
     </div>
     <div class="video-grid">
-      <div class="vthumb" onclick="showToast('Memutar video...')">
-        <img src="video_benar.png" alt="Video Praktik Saya"/>
-        <div class="vthumb-play"><svg viewBox="0 0 24 24" fill="none"><polygon points="10 8 16 12 10 16 10 8" fill="white"/></svg></div>
-        <span class="vthumb-dur">0:32</span>
-      </div>
-      <div class="status-box">
-        <div class="status-badge">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Video berhasil diunggah
+      <?php if (!empty($video_path)): ?>
+        <div style="border-radius:10px; overflow:hidden; border:2px solid var(--blue-mid); height:160px; background:#000;">
+          <iframe src="<?= htmlspecialchars($video_path) ?>" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
         </div>
-        <p class="status-text">Terima kasih! Videomu sudah tersimpan. Sekarang lanjutkan dengan penilaian psikomotor.</p>
-      </div>
+        <div class="status-box">
+          <div class="status-badge">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Video Tautkan Sukses
+          </div>
+          <p class="status-text">Terima kasih! Videomu sudah ditautkan. Silakan periksa gerakanmu sambil mengisi rubrik di bawah ini.</p>
+        </div>
+      <?php else: ?>
+        <div class="status-box" style="grid-column: span 2;">
+          <div class="status-badge" style="background:#FEE2E2; color:#DC2626;">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>
+            Video Belum Ditautkan
+          </div>
+          <p class="status-text">Harap tautkan video di halaman Aktivitas terlebih dahulu agar kamu dapat memutar video praktikmu saat memberikan penilaian.</p>
+        </div>
+      <?php endif; ?>
     </div>
   </div>
 

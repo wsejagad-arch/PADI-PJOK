@@ -5,6 +5,34 @@ require_once 'koneksi.php';
 
 $siswa_id = $_SESSION['siswa_id'] ?? 0;
 
+// Handle Save Video Link
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_video_link') {
+    header('Content-Type: application/json');
+    $link = trim($_POST['link'] ?? '');
+    
+    // Konversi YouTube URL ke versi Embed
+    if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i', $link, $matches)) {
+        $link = 'https://www.youtube.com/embed/' . $matches[1];
+    }
+    
+    $cek = $conn->prepare("SELECT id FROM penilaian_psikomotor WHERE siswa_id = ?");
+    $cek->bind_param("i", $siswa_id);
+    $cek->execute();
+    $res = $cek->get_result();
+    
+    if ($res->num_rows > 0) {
+        $upd = $conn->prepare("UPDATE penilaian_psikomotor SET video_path = ? WHERE siswa_id = ?");
+        $upd->bind_param("si", $link, $siswa_id);
+        $upd->execute();
+    } else {
+        $ins = $conn->prepare("INSERT INTO penilaian_psikomotor (siswa_id, video_path) VALUES (?, ?)");
+        $ins->bind_param("is", $siswa_id, $link);
+        $ins->execute();
+    }
+    echo json_encode(['success' => true, 'embed_link' => $link]);
+    exit;
+}
+
 // Check Self Assessment (Afektif)
 $cek_self = $conn->prepare("SELECT id FROM penilaian_afektif WHERE siswa_id = ?");
 $cek_self->bind_param("i", $siswa_id);
@@ -18,6 +46,14 @@ $cek_peer->bind_param("i", $siswa_id);
 $cek_peer->execute();
 $has_peer = $cek_peer->get_result()->num_rows > 0;
 $cek_peer->close();
+
+// Check Video
+$cek_video = $conn->prepare("SELECT video_path FROM penilaian_psikomotor WHERE siswa_id = ?");
+$cek_video->bind_param("i", $siswa_id);
+$cek_video->execute();
+$res_vid = $cek_video->get_result();
+$video_path = $res_vid->num_rows > 0 ? $res_vid->fetch_assoc()['video_path'] : null;
+$cek_video->close();
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -297,9 +333,22 @@ $cek_peer->close();
         <span class="video-duration">0:24</span>
         <div class="video-play"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="rgba(0,0,0,.5)"/><polygon points="10 8 16 12 10 16 10 8" fill="white"/></svg></div>
       </div>
-      <div class="upload-box" onclick="uploadVideo()">
-        <svg viewBox="0 0 24 24" fill="none"><polyline points="16 16 12 12 8 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <p>Unggah Video Praktik<br/><span style="font-weight:400;color:var(--text-3)">Maks. 2 menit</span></p>
+      <div id="video-upload-area" style="grid-column: span 2;">
+        <?php if (!empty($video_path)): ?>
+          <div style="border-radius:10px; overflow:hidden; border:2px solid var(--blue-mid); height:160px; background:#000;">
+            <iframe src="<?= htmlspecialchars($video_path) ?>" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
+          </div>
+          <p style="text-align:center; font-size:11px; margin-top:8px; color:var(--green); font-weight:600;">✅ Video Praktik Tersimpan</p>
+        <?php else: ?>
+          <div class="upload-box" style="height:auto; padding:16px;" onclick="document.getElementById('link-video').focus()">
+            <svg viewBox="0 0 24 24" fill="none" style="margin-bottom:8px;"><polyline points="16 16 12 12 8 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <p style="margin-bottom:10px;">Tautkan Video Praktik<br/><span style="font-weight:400;color:var(--text-3)">YouTube / Google Drive</span></p>
+            <div style="display:flex; gap:6px; width:100%;">
+              <input type="url" id="link-video" placeholder="Tempel link di sini..." style="flex:1; padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:12px; outline:none;" onclick="event.stopPropagation()">
+              <button onclick="simpanVideo(event)" style="background:var(--blue); color:white; border:none; border-radius:6px; padding:0 12px; font-size:12px; font-weight:600; cursor:pointer;">Simpan</button>
+            </div>
+          </div>
+        <?php endif; ?>
       </div>
     </div>
   </div>
@@ -395,9 +444,44 @@ $cek_peer->close();
 <div class="toast" id="toast"></div>
 <script>
   function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);}
-  function uploadVideo(){
-    showToast('🎥 Pilih video dari galeri...');
-    setTimeout(()=>showToast('✅ Video berhasil diunggah!'),2000);
+  function simpanVideo(e){
+    e.stopPropagation();
+    const btn = e.target;
+    const input = document.getElementById('link-video');
+    const link = input.value.trim();
+    
+    if(!link){
+      showToast('❌ Masukkan link video terlebih dahulu!');
+      return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Menyimpan...';
+    
+    fetch('aktivitas-siswa.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        action: 'save_video_link',
+        link: link
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if(data.success){
+        showToast('✅ Video berhasil ditautkan!');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast('❌ Gagal menyimpan tautan video.');
+        btn.disabled = false;
+        btn.textContent = 'Simpan';
+      }
+    })
+    .catch(err => {
+      showToast('❌ Terjadi kesalahan koneksi.');
+      btn.disabled = false;
+      btn.textContent = 'Simpan';
+    });
   }
 </script>
 </body>
