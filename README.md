@@ -146,6 +146,8 @@ Untuk merilis aset baru, cukup ubah berkasnya — `?v=` diambil dari `filemtime`
 - **Dashboard siswa** menampilkan kartu “Jadwal Hari Ini” sesuai kelas siswa (`hari` = 1 Senin … 7 Minggu).
 - **Pantau siswa** (`pantau-siswa.php`) berupa tabel dengan filter **kelas**, **nama**, dan **status tugas/asesmen**
   (kognitif, video praktik, psikomotor, afektif, penilaian rekan — sudah/belum), plus ringkasan jumlah.
+- **Rekap penilaian** (`rekap-penilaian.php`) berupa tabel per indikator (Kognitif, Afektif, Psikomotor, Diri/Rekan,
+  Rata-rata, Predikat) dengan filter kelas + nama siswa; rubrik 0–20 dikonversi ke skala 0–100.
 
 ## Keamanan
 

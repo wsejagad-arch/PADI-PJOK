@@ -25,7 +25,7 @@ if ($conn) {
                    (SELECT nilai_rubrik FROM penilaian_psikomotor WHERE siswa_id = p.id ORDER BY id DESC LIMIT 1) AS psi,
                    (SELECT video_path FROM penilaian_psikomotor WHERE siswa_id = p.id ORDER BY id DESC LIMIT 1) AS video,
                    (SELECT nilai_rubrik FROM penilaian_afektif WHERE siswa_id = p.id ORDER BY id DESC LIMIT 1) AS afek,
-                   (SELECT COUNT(*) FROM penilaian_rekan WHERE dinilai_id = p.id) AS rekan
+                   (SELECT nilai_rubrik FROM penilaian_rekan WHERE penilai_id = p.id ORDER BY id DESC LIMIT 1) AS rekan
             FROM siswa p
             JOIN sesi s ON s.id = p.sesi_id
             WHERE s.status = 'aktif'
@@ -50,7 +50,7 @@ function padi_asesmen_terisi(array $row, $jenis)
     if ($jenis === 'video') return $row['video'] !== '';
     if ($jenis === 'psikomotor') return $row['psi'] !== null;
     if ($jenis === 'afektif') return $row['afek'] !== null;
-    if ($jenis === 'rekan') return (int)$row['rekan'] > 0;
+    if ($jenis === 'rekan') return $row['rekan'] !== null;
     return true;
 }
 }
@@ -228,7 +228,7 @@ function padi_badge($terisi, $teksIsi)
                 <th>Video</th>
                 <th>Psikomotor</th>
                 <th>Afektif</th>
-                <th>Rekan</th>
+                <th>Diri/Rekan</th>
                 <th>Gabung</th>
               </tr>
             </thead>
@@ -242,7 +242,7 @@ function padi_badge($terisi, $teksIsi)
                   <td><?= padi_badge($s['video'] !== '', 'Masuk') ?></td>
                   <td><?= padi_badge($s['psi'] !== null, 'Nilai ' . (int)$s['psi']) ?></td>
                   <td><?= padi_badge($s['afek'] !== null, 'Nilai ' . (int)$s['afek']) ?></td>
-                  <td><?= padi_badge((int)$s['rekan'] > 0, (int)$s['rekan'] . '×') ?></td>
+                  <td><?= padi_badge($s['rekan'] !== null, 'Nilai ' . ((int)$s['rekan'] * 5)) ?></td>
                   <td class="waktu"><?= htmlspecialchars(padi_jam($s['created_at']), ENT_QUOTES, 'UTF-8') ?></td>
                 </tr>
               <?php endforeach; ?>
