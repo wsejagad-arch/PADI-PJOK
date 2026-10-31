@@ -112,6 +112,22 @@ perbaikan-keamanan-ct102.sh  # patch .env + nginx + token tunnel di server
 deploy.sh              # skrip deploy otomatis (Proxmox/Debian)
 ```
 
+## Tampilan 2 mode (otomatis)
+
+Satu lapisan aset dipakai semua halaman lewat `ui-head.php`:
+
+- **Mode PC** (≥1024px): navigasi bawah berubah jadi **sidebar kiri** 248px, konten melebar 1180px, daftar kartu jadi grid.
+- **Mode mobile** (<1024px): tetap app-like — bottom-nav, `safe-area` iOS, target sentuh ≥40px.
+- Deteksi otomatis via media query (`data-mode="pc|mobile"` di `<html>`), tanpa tombol manual.
+
+Berkas: `aset/app.css`, `aset/app.js`, `ui-head.php`.
+
+### PWA (installable)
+
+`aset/manifest.webmanifest` + `sw.js` (cache shell + halaman offline), ikon 192/512/maskable.
+Tombol **Pasang aplikasi** muncul otomatis saat browser mendukung (`beforeinstallprompt`).
+Untuk merilis aset baru, cukup ubah berkasnya — `?v=` diambil dari `filemtime`; naikkan `CACHE` di `sw.js` bila perlu memaksa update.
+
 ## Keamanan
 
 - Kredensial DB **hanya** di `.env` / environment variable (bukan di kode).
