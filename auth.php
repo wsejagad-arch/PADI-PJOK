@@ -123,23 +123,65 @@ function padi_wajib_csrf()
 }
 
 /**
- * Sisa detik blokir percobaan (0 = masih diizinkan). Ringan: hanya $_SESSION.
- * Catatan: penyerang bisa menghapus cookie, jadi ini pelengkap token acak,
- * bukan satu-satunya pertahanan.
+ * Pembatas percobaan lintas-proses (berbasis berkas + flock, tanpa ekstensi).
+ * Sisa detik blokir, 0 = masih diizinkan. Bila berkas tak bisa dibuat,
+ * otomatis jatuh ke penghitung $_SESSION.
  */
+if (!function_exists('padi_throttle_berkas')) {
+function padi_throttle_berkas($kunci)
+{
+    return sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'padi_thr_' . md5($kunci) . '.txt';
+}
+}
+
 if (!function_exists('padi_throttle')) {
 function padi_throttle($kunci, $maks = 5, $jeda = 600)
+{
+    $berkas = padi_throttle_berkas($kunci);
+    $fp = @fopen($berkas, 'c+');
+    if (!$fp) {
+        return padi_throttle_sesi($kunci, $maks, $jeda);
+    }
+    $now = time();
+    $sisa = 0;
+    if (flock($fp, LOCK_EX)) {
+        $isi = trim((string)stream_get_contents($fp));
+        $n = 0; $sampai = 0;
+        if ($isi !== '') {
+            $bagian = explode(' ', $isi);
+            $n = (int)($bagian[0] ?? 0);
+            $sampai = (int)($bagian[1] ?? 0);
+        }
+        if ($sampai > $now) {
+            $sisa = $sampai - $now;
+        } elseif ($sampai !== 0) {
+            $n = 0; // masa blokir berakhir → mulai dari nol
+            ftruncate($fp, 0); rewind($fp); fwrite($fp, '0 0');
+        } elseif ($n >= $maks) {
+            $sampai = $now + $jeda;
+            ftruncate($fp, 0); rewind($fp); fwrite($fp, $n . ' ' . $sampai);
+            $sisa = $jeda;
+        }
+        flock($fp, LOCK_UN);
+    }
+    fclose($fp);
+    return $sisa;
+}
+}
+
+if (!function_exists('padi_throttle_sesi')) {
+function padi_throttle_sesi($kunci, $maks = 5, $jeda = 600)
 {
     padi_mulai_sesi();
     $data = $_SESSION['padi_throttle'][$kunci] ?? ['n' => 0, 'sampai' => 0];
     $data = ['n' => (int)($data['n'] ?? 0), 'sampai' => (int)($data['sampai'] ?? 0)];
     $sisa = $data['sampai'] - time();
     if ($sisa > 0) return $sisa;
-    if ((int)$data['sampai'] !== 0) {
+    if ($data['sampai'] !== 0) {
         $_SESSION['padi_throttle'][$kunci] = ['n' => 0, 'sampai' => 0];
-        $data = $_SESSION['padi_throttle'][$kunci];
+        $data = ['n' => 0, 'sampai' => 0];
     }
-    if ((int)$data['n'] >= $maks) {
+    if ($data['n'] >= $maks) {
         $_SESSION['padi_throttle'][$kunci]['sampai'] = time() + $jeda;
         return $jeda;
     }
@@ -150,6 +192,28 @@ function padi_throttle($kunci, $maks = 5, $jeda = 600)
 if (!function_exists('padi_throttle_gagal')) {
 function padi_throttle_gagal($kunci)
 {
+    $berkas = padi_throttle_berkas($kunci);
+    $fp = @fopen($berkas, 'c+');
+    if ($fp) {
+        if (flock($fp, LOCK_EX)) {
+            $isi = trim((string)stream_get_contents($fp));
+            $n = 0; $sampai = 0;
+            if ($isi !== '') {
+                $bagian = explode(' ', $isi);
+                $n = (int)($bagian[0] ?? 0);
+                $sampai = (int)($bagian[1] ?? 0);
+            }
+            if ($sampai > time()) { // sudah diblokir, jangan tambah
+                flock($fp, LOCK_UN); fclose($fp); return;
+            }
+            $n++;
+            ftruncate($fp, 0); rewind($fp); fwrite($fp, $n . ' 0');
+            flock($fp, LOCK_UN);
+        }
+        fclose($fp);
+        return;
+    }
+
     padi_mulai_sesi();
     $data = $_SESSION['padi_throttle'][$kunci] ?? ['n' => 0, 'sampai' => 0];
     $_SESSION['padi_throttle'][$kunci] = [
@@ -162,6 +226,7 @@ function padi_throttle_gagal($kunci)
 if (!function_exists('padi_throttle_reset')) {
 function padi_throttle_reset($kunci)
 {
+    @unlink(padi_throttle_berkas($kunci));
     padi_mulai_sesi();
     unset($_SESSION['padi_throttle'][$kunci]);
 }
