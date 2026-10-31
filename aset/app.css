@@ -49,7 +49,7 @@
   --padi-text-4: var(--padi-slate-400);
 
   /* Geometry & Shadows */
-  --padi-sidebar: 260px;
+  --padi-sidebar: 256px;
   --padi-radius-sm: 8px;
   --padi-radius: 14px;
   --padi-radius-lg: 20px;
@@ -302,7 +302,7 @@ body {
 }
 
 /* ==========================================================================
-   Mobile Ergonomics (< 1024px)
+   Mobile Bottom Navigation (< 1024px)
    ========================================================================== */
 @media (max-width: 639px) {
   .stats-row {
@@ -333,6 +333,14 @@ nav.bottom-nav, nav.nav-bottom {
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
 }
 
+/* Sembunyikan elemen dekorasi desktop saat di mobile */
+@media (max-width: 1023px) {
+  .sidebar-menu-heading,
+  .nav-item-logout {
+    display: none !important;
+  }
+}
+
 @media (hover: none) and (pointer: coarse) {
   button, .nav-item, .filter-btn, .btn-submit, .padi-btn-primary {
     min-height: 44px;
@@ -340,10 +348,10 @@ nav.bottom-nav, nav.nav-bottom {
 }
 
 /* ==========================================================================
-   Desktop System & Sidebar Layout (>= 1024px)
+   Desktop System & Clean Sidebar (>= 1024px)
    ========================================================================== */
 @media (min-width: 1024px) {
-  /* ONLY add sidebar offset when a navigation sidebar actually exists */
+  /* Offset konten utama hanya jika sidebar navigasi ada */
   body:has(nav.bottom-nav),
   body:has(nav.nav-bottom),
   body.has-sidebar {
@@ -353,7 +361,7 @@ nav.bottom-nav, nav.nav-bottom {
     background: var(--padi-bg);
   }
 
-  /* When there is NO sidebar (auth pages), ensure centered, expansive layout */
+  /* Halaman tanpa sidebar (auth / login) tetap berada di tengah */
   body:not(:has(nav.bottom-nav)):not(:has(nav.nav-bottom)):not(.has-sidebar) {
     max-width: none !important;
     margin: 0 !important;
@@ -361,7 +369,7 @@ nav.bottom-nav, nav.nav-bottom {
     background: var(--padi-bg);
   }
 
-  /* Transform mobile bottom-nav into sleek left sidebar */
+  /* ── Sidebar Shell ── */
   nav.bottom-nav, nav.nav-bottom {
     position: fixed !important;
     inset: 0 auto 0 0 !important;
@@ -372,73 +380,176 @@ nav.bottom-nav, nav.nav-bottom {
     flex-direction: column !important;
     justify-content: flex-start !important;
     align-items: stretch !important;
-    gap: 6px;
-    padding: 24px 14px 20px !important;
-    background: #ffffff;
+    gap: 4px;
+    padding: 20px 14px 20px !important;
+    background: #ffffff !important;
     border-top: 0 !important;
-    border-right: 1px solid var(--padi-slate-200);
-    box-shadow: 1px 0 3px rgba(0, 0, 0, 0.02) !important;
+    border-right: 1px solid var(--padi-slate-200) !important;
+    box-shadow: 1px 0 2px rgba(15, 23, 42, 0.03) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     z-index: 60;
   }
 
-  /* Sidebar Brand Header */
-  nav.bottom-nav::before, nav.nav-bottom::before {
-    content: "PADI-PJOK";
-    display: flex;
-    align-items: center;
-    padding: 0 12px 20px;
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: var(--padi-blue);
-    border-bottom: 1px solid var(--padi-slate-100);
-    margin-bottom: 12px;
+  nav.bottom-nav::-webkit-scrollbar,
+  nav.nav-bottom::-webkit-scrollbar {
+    width: 4px;
   }
 
-  /* Sidebar Links */
+  nav.bottom-nav::-webkit-scrollbar-thumb,
+  nav.nav-bottom::-webkit-scrollbar-thumb {
+    background: var(--padi-slate-200);
+    border-radius: 4px;
+  }
+
+  /* ── Brand Header Sidebar (Logo + Teks) ── */
+  nav.bottom-nav::before, nav.nav-bottom::before {
+    content: "PADI-PJOK";
+    display: flex !important;
+    align-items: center !important;
+    height: 52px !important;
+    padding: 0 10px 16px 42px !important;
+    font-size: 17px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    color: var(--padi-blue) !important;
+    border-bottom: 1px solid var(--padi-slate-200) !important;
+    margin-bottom: 12px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d4ed8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 8h1a4 4 0 0 1 0 8h-1'/%3E%3Cpath d='M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z'/%3E%3Cline x1='6' y1='1' x2='6' y2='4'/%3E%3Cline x1='10' y1='1' x2='10' y2='4'/%3E%3Cline x1='14' y1='1' x2='14' y2='4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat !important;
+    background-position: 8px 10px !important;
+    background-size: 24px 24px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* ── Label Kategori Menu ── */
+  .sidebar-menu-heading {
+    display: block !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: var(--padi-slate-400) !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    padding: 6px 12px 6px !important;
+    margin-bottom: 2px !important;
+  }
+
+  /* ── Menu Items ── */
   nav.bottom-nav .nav-item, nav.nav-bottom .nav-item {
     flex-direction: row !important;
     justify-content: flex-start !important;
-    align-items: center;
+    align-items: center !important;
     width: 100% !important;
-    height: 44px !important;
-    gap: 12px;
-    padding: 0 14px;
-    border-radius: var(--padi-radius-sm);
-    color: var(--padi-slate-600);
-    text-decoration: none;
-    transition: var(--padi-transition);
+    height: 42px !important;
+    gap: 12px !important;
+    padding: 0 12px !important;
+    border-radius: 10px !important;
+    color: var(--padi-slate-600) !important;
+    text-decoration: none !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    transition: all 0.15s ease-in-out !important;
+    position: relative !important;
   }
 
   nav.bottom-nav .nav-item:hover, nav.nav-bottom .nav-item:hover {
-    background: var(--padi-slate-100);
-    color: var(--padi-slate-900);
+    background-color: var(--padi-slate-100) !important;
+    color: var(--padi-slate-900) !important;
+    transform: translateX(2px) !important;
   }
 
   nav.bottom-nav .nav-item span, nav.nav-bottom .nav-item span {
-    font-size: 13.5px;
-    font-weight: 600;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
   }
 
   nav.bottom-nav .nav-item svg, nav.nav-bottom .nav-item svg {
-    width: 20px;
-    height: 20px;
+    width: 19px !important;
+    height: 19px !important;
     transform: none !important;
-    flex-shrink: 0;
+    flex-shrink: 0 !important;
+    color: var(--padi-slate-400) !important;
+    transition: color 0.15s ease !important;
   }
 
+  nav.bottom-nav .nav-item:hover svg, nav.nav-bottom .nav-item:hover svg {
+    color: var(--padi-slate-700) !important;
+  }
+
+  /* ── State Aktif (Pill Design) ── */
   nav.bottom-nav .nav-item.active, nav.nav-bottom .nav-item.active {
-    background: var(--padi-blue-light);
-    color: var(--padi-blue);
-    font-weight: 700;
-    border-left: 3px solid var(--padi-blue);
+    background-color: var(--padi-blue-light) !important;
+    color: var(--padi-blue) !important;
+    font-weight: 700 !important;
+    border: 1px solid var(--padi-blue-border) !important;
+    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.05) !important;
+  }
+
+  nav.bottom-nav .nav-item.active span, nav.nav-bottom .nav-item.active span {
+    font-weight: 700 !important;
+    color: var(--padi-blue) !important;
+  }
+
+  nav.bottom-nav .nav-item.active svg, nav.nav-bottom .nav-item.active svg {
+    color: var(--padi-blue) !important;
+    stroke-width: 2.2 !important;
+  }
+
+  /* Dot Indikator Aktif di Sebelah Kanan */
+  nav.bottom-nav .nav-item.active::after, nav.nav-bottom .nav-item.active::after {
+    content: '' !important;
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background-color: var(--padi-blue) !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
   }
 
   nav.bottom-nav .nav-indicator, nav.nav-bottom .nav-indicator {
     display: none !important;
   }
 
-  /* Desktop Content Container */
+  /* ── Tombol Keluar (Anchored to Bottom of Sidebar) ── */
+  nav.bottom-nav .nav-item.nav-keluar,
+  nav.nav-bottom .nav-item.nav-keluar,
+  nav.bottom-nav .nav-item-logout,
+  nav.nav-bottom .nav-item-logout,
+  nav.bottom-nav .nav-item[href*="logout"],
+  nav.nav-bottom .nav-item[href*="logout"] {
+    margin-top: auto !important;
+    border-top: 1px solid var(--padi-slate-200) !important;
+    padding-top: 10px !important;
+    color: var(--padi-slate-500) !important;
+    border-radius: 10px !important;
+  }
+
+  nav.bottom-nav .nav-item.nav-keluar:hover,
+  nav.nav-bottom .nav-item.nav-keluar:hover,
+  nav.bottom-nav .nav-item-logout:hover,
+  nav.nav-bottom .nav-item-logout:hover,
+  nav.bottom-nav .nav-item[href*="logout"]:hover,
+  nav.nav-bottom .nav-item[href*="logout"]:hover {
+    background-color: var(--padi-rose-light) !important;
+    color: var(--padi-rose-hover) !important;
+    border-color: var(--padi-rose-border) !important;
+    transform: none !important;
+  }
+
+  nav.bottom-nav .nav-item.nav-keluar svg,
+  nav.nav-bottom .nav-item.nav-keluar svg,
+  nav.bottom-nav .nav-item-logout svg,
+  nav.nav-bottom .nav-item-logout svg,
+  nav.bottom-nav .nav-item[href*="logout"] svg,
+  nav.nav-bottom .nav-item[href*="logout"] svg {
+    color: inherit !important;
+  }
+
+  /* ── Desktop Content Container ── */
   body > main, main.content, .content {
     width: 100% !important;
     max-width: 1240px !important;
