@@ -1,0 +1,56 @@
+name: CI — Lint & cek rahasia
+
+# Deploy produksi TIDAK lewat GitHub Actions: CT102 hanya bisa dijangkau
+# lewat Cloudflare Tunnel (IP privat 192.168.100.102), sehingga runner GitHub
+# tidak punya jalur SSH. Deploy dilakukan manual di dalam CT102:
+#   cd /var/www/padipjok && git pull && bash perbaikan-keamanan-ct102.sh
+# (atau `bash deploy.sh` untuk pemasangan penuh).
+#
+# Workflow ini menggantikan deploy.yml lama yang selalu gagal 0 detik karena
+# secret DEPLOY_* kosong.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint PHP / shell / aset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versi PHP
+        run: php -v
+
+      - name: Lint semua berkas PHP
+        run: |
+          gagal=0
+          for f in $(git ls-files '*.php'); do
+            if ! php -l "$f" > /tmp/lint.txt 2>&1; then
+              echo "::error file=$f::$(cat /tmp/lint.txt)"
+              gagal=1
+            fi
+          done
+          [ "$gagal" -eq 0 ] || exit 1
+          echo "Semua berkas PHP lolos lint."
+
+      - name: Sintaks skrip shell
+        run: |
+          for f in $(git ls-files '*.sh'); do
+            bash -n "$f" && echo "OK $f"
+          done
+
+      - name: Validasi manifest PWA
+        run: php -r '$m=json_decode(file_get_contents("aset/manifest.webmanifest"), true); if (!$m) { fwrite(STDERR, "manifest tidak valid\n"); exit(1); } echo "manifest OK: ", $m["name"], "\n";'
+
+      - name: Tolak token/kunci yang ikut ter-commit
+        run: |
+          pola='(eyJ[A-Za-z0-9_-]{100,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|cfut_[A-Za-z0-9]{20,})'
+          if git grep -nE "$pola" -- . ':!HISTORY.md' ':!.github/workflows'; then
+            echo "::error::Ada token/kunci di berkas yang di-commit. Hapus dan rotasi nilainya."
+            exit 1
+          fi
+          echo "Tidak ada token/kunci ter-commit."
