@@ -390,17 +390,17 @@ wajibLoginGuru();
     <svg viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="2"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2"/></svg>
     <span>Beranda</span>
   </a>
-  <a href="#" class="nav-item" onclick="showToast('Aktivitas'); return false;" aria-label="Aktivitas">
+  <a href="aktivitas-guru.php" class="nav-item" aria-label="Aktivitas">
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3" stroke="currentColor" stroke-width="2"/><path d="M12 11v4l-2 3h4l-2-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 10l-3 2M18 10l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     <span>Aktivitas</span>
   </a>
-  <a href="#" class="nav-item active" aria-label="Nilai" aria-current="page">
+  <a href="rekap-penilaian.php" class="nav-item" aria-label="Nilai">
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" stroke-width="2"/><path d="M9 7h6M9 11h6M9 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     <span>Nilai</span>
   </a>
-  <a href="#" class="nav-item" onclick="showToast('Profil'); return false;" aria-label="Profil">
+  <a href="profil-guru.php" class="nav-item" aria-label="Profil">
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     <span>Profil</span>

@@ -41,33 +41,15 @@ $stmt->close();
     table.data-tabel td.no { text-align: center; width: 40px; }
     table.data-tabel td.nis { width: 100px; text-align: center; }
     
-    .tanda-tangan { width: 100%; margin-top: 50px; }
-    .tanda-tangan table { width: 100%; border: none; }
-    .tanda-tangan td { width: 50%; border: none; text-align: center; padding: 0; vertical-align: top; }
-    .tanda-tangan .spacer { height: 80px; }
-    
-    .print-btn { display: block; width: 200px; margin: 0 auto 30px; padding: 10px; background: #1A56DB; color: #fff; text-align: center; border: none; border-radius: 5px; font-family: sans-serif; font-weight: bold; cursor: pointer; }
-    
+
     @media print {
-        .print-btn { display: none; }
         body { padding: 0; }
     }
   </style>
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
-
-  <button class="print-btn" onclick="window.print()">Cetak Dokumen</button>
-
-  <div class="kop-surat">
-    <h1>DAFTAR NAMA SISWA PADI-PJOK</h1>
-    <p>Penilaian Autentik Digital Integratif untuk Pendidikan Jasmani Olahraga dan Kesehatan</p>
-  </div>
-
-  <div class="judul-dokumen">
-    <h2>DATA SISWA</h2>
-    <p>Kelas: <strong><?= htmlspecialchars($kelas) ?></strong></p>
-  </div>
+<?php require_once __DIR__ . '/ui-cetak.php'; padi_cetak_siap('DATA SISWA', 'Kelas ' . $kelas . ' • ' . count($siswa_list) . ' siswa', ['orientasi' => 'portrait']); ?>
 
   <table class="data-tabel">
     <thead>
@@ -96,26 +78,6 @@ $stmt->close();
     </tbody>
   </table>
 
-  <div class="tanda-tangan">
-    <table>
-      <tr>
-        <td></td>
-        <td>
-          <p>_____________, <?= date('d F Y') ?></p>
-          <p>Guru Mata Pelajaran PJOK,</p>
-          <div class="spacer"></div>
-          <p>(___________________________)</p>
-          <p>NIP. </p>
-        </td>
-      </tr>
-    </table>
-  </div>
-
-  <script>
-    // Langsung buka dialog print saat laman dimuat
-    window.onload = function() {
-      window.print();
-    }
-  </script>
+<?php padi_cetak_ttd(); ?>
 </body>
 </html>

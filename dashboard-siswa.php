@@ -8,17 +8,30 @@ $materi_title = ucwords(str_replace('-', ' ', $materi_id));
 // To get the actual scores, we should query them from DB.
 // For now, let's keep them zero or fetch if they exist.
 require 'koneksi.php';
+$pesertaId = (int)($_SESSION['siswa_id'] ?? 0);
 $kognitif = 0; $psikomotor = 0; $afektif = 0;
-if ($conn) {
-    // Fetch kognitif
-    $q = $conn->query("SELECT nilai_total FROM penilaian_kognitif WHERE siswa_id = " . intval($_SESSION['siswa_id']));
-    if ($q && $r = $q->fetch_assoc()) $kognitif = $r['nilai_total'];
-    // Fetch psikomotor
-    $q = $conn->query("SELECT nilai_rubrik FROM penilaian_psikomotor WHERE siswa_id = " . intval($_SESSION['siswa_id']));
-    if ($q && $r = $q->fetch_assoc()) $psikomotor = $r['nilai_rubrik'];
-    // Fetch afektif
-    $q = $conn->query("SELECT nilai_rubrik FROM penilaian_afektif WHERE siswa_id = " . intval($_SESSION['siswa_id']));
-    if ($q && $r = $q->fetch_assoc()) $afektif = $r['nilai_rubrik'];
+$riwayatNilai = [];
+$feedbackGuru = [];
+if ($conn && $pesertaId > 0) {
+    $q = $conn->query("SELECT nilai_total FROM penilaian_kognitif WHERE siswa_id = $pesertaId ORDER BY id DESC LIMIT 1");
+    if ($q && $r = $q->fetch_assoc()) $kognitif = (float)$r['nilai_total'];
+    $q = $conn->query("SELECT COALESCE(nilai_guru, nilai_rubrik) AS n FROM penilaian_psikomotor WHERE siswa_id = $pesertaId ORDER BY id DESC LIMIT 1");
+    if ($q && ($r = $q->fetch_assoc()) && $r['n'] !== null) $psikomotor = (float)$r['n'] * 5;
+    $q = $conn->query("SELECT COALESCE(nilai_guru, nilai_rubrik) AS n FROM penilaian_afektif WHERE siswa_id = $pesertaId ORDER BY id DESC LIMIT 1");
+    if ($q && ($r = $q->fetch_assoc()) && $r['n'] !== null) $afektif = (float)$r['n'] * 5;
+
+    $q = $conn->query("SELECT jenis, nilai, waktu FROM (
+            SELECT 'Kognitif' AS jenis, nilai_total AS nilai, created_at AS waktu FROM penilaian_kognitif WHERE siswa_id = $pesertaId
+            UNION ALL SELECT 'Psikomotor', COALESCE(nilai_guru, nilai_rubrik) * 5, COALESCE(dinilai_at, created_at) FROM penilaian_psikomotor WHERE siswa_id = $pesertaId
+            UNION ALL SELECT 'Afektif', COALESCE(nilai_guru, nilai_rubrik) * 5, COALESCE(dinilai_at, created_at) FROM penilaian_afektif WHERE siswa_id = $pesertaId
+        ) t WHERE nilai IS NOT NULL ORDER BY waktu DESC LIMIT 5");
+    while ($q && ($r = $q->fetch_assoc())) $riwayatNilai[] = $r;
+
+    $q = $conn->query("SELECT umpan, sumber, waktu FROM (
+            SELECT COALESCE(NULLIF(feedback_guru, ''), NULLIF(catatan_guru, '')) AS umpan, 'Psikomotor' AS sumber, COALESCE(dinilai_at, created_at) AS waktu FROM penilaian_psikomotor WHERE siswa_id = $pesertaId
+            UNION ALL SELECT NULLIF(catatan_guru, ''), 'Afektif', COALESCE(dinilai_at, created_at) FROM penilaian_afektif WHERE siswa_id = $pesertaId
+        ) t WHERE umpan IS NOT NULL AND umpan <> '' ORDER BY waktu DESC LIMIT 3");
+    while ($q && ($r = $q->fetch_assoc())) $feedbackGuru[] = $r;
 }
 
 // Jadwal pelajaran hari ini untuk kelas siswa (diisi guru lewat menu Jadwal).
@@ -258,7 +271,7 @@ if ($conn) {
   </div>
 
   <!-- Nilai Terbaru -->
-  <div class="anim">
+  <div class="anim" id="nilai-terbaru">
     <div class="section-hdr" style="margin-bottom:12px">
       <h2>Nilai Terbaru</h2>
       <a href="rekap-penilaian.php" class="lihat-semua">Lihat semua <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></a>
@@ -267,72 +280,87 @@ if ($conn) {
       <div class="nilai-card">
         <div class="nilai-icon blue"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8 2 5 5 5 9c0 2.5 1.3 4.7 3.2 6H12h3.8C17.7 13.7 19 11.5 19 9c0-4-3-7-7-7z" stroke="currentColor" stroke-width="1.8"/><path d="M9 21h6M10 17h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
         <span class="nilai-label">Kognitif</span>
-        <span class="nilai-val"><?= $kognitif ?></span>
-        <span class="nilai-grade blue"><?= $kognitif >= 85 ? 'Sangat Baik' : ($kognitif >= 70 ? 'Baik' : 'Cukup') ?></span>
+        <span class="nilai-val"><?= (int)round($kognitif) ?></span>
+        <span class="nilai-grade blue"><?= $kognitif >= 85 ? 'Sangat Baik' : ($kognitif >= 70 ? 'Baik' : ($kognitif >= 50 ? 'Cukup' : 'Perlu Bimbingan')) ?></span>
       </div>
       <div class="nilai-card">
         <div class="nilai-icon green"><svg viewBox="0 0 24 24" fill="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" stroke="currentColor" stroke-width="1.8"/></svg></div>
         <span class="nilai-label">Afektif</span>
-        <span class="nilai-val"><?= $afektif ?></span>
-        <span class="nilai-grade green"><?= $afektif >= 16 ? 'Sangat Baik' : ($afektif >= 12 ? 'Baik' : 'Cukup') ?></span>
+        <span class="nilai-val"><?= (int)round($afektif) ?></span>
+        <span class="nilai-grade green"><?= $afektif >= 85 ? 'Sangat Baik' : ($afektif >= 70 ? 'Baik' : ($afektif >= 50 ? 'Cukup' : 'Perlu Bimbingan')) ?></span>
       </div>
       <div class="nilai-card">
         <div class="nilai-icon orange"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l-3 4M12 13l3 4M8 10l-3 2M16 10l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
         <span class="nilai-label">Psikomotor</span>
-        <span class="nilai-val"><?= $psikomotor ?></span>
-        <span class="nilai-grade orange"><?= $psikomotor >= 16 ? 'Sangat Baik' : ($psikomotor >= 12 ? 'Baik' : 'Cukup') ?></span>
+        <span class="nilai-val"><?= (int)round($psikomotor) ?></span>
+        <span class="nilai-grade orange"><?= $psikomotor >= 85 ? 'Sangat Baik' : ($psikomotor >= 70 ? 'Baik' : ($psikomotor >= 50 ? 'Cukup' : 'Perlu Bimbingan')) ?></span>
       </div>
     </div>
   </div>
 
   <!-- Feedback Guru -->
-  <div class="anim">
-    <div class="feedback-card" onclick="showToast('Membuka feedback guru...')">
-      <div class="feedback-header">
-        <div class="feedback-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="currentColor" stroke-width="2"/></svg></div>
-        <span class="feedback-title">Feedback Guru</span>
-        <span class="feedback-new">Baru</span>
+  <div class="anim" id="feedback-guru">
+    <?php if (!$feedbackGuru): ?>
+      <div class="feedback-card">
+        <div class="feedback-header">
+          <div class="feedback-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="currentColor" stroke-width="2"/></svg></div>
+          <span class="feedback-title">Feedback Guru</span>
+        </div>
+        <p class="feedback-text">Belum ada feedback. Feedback akan muncul di sini setelah guru menilai Psikomotor atau Afektif.</p>
       </div>
-      <p class="feedback-text">Teknik passing bawahmu sudah tepat dan konsisten. Pertahankan! Tingkatkan kekuatan dorongan tangan.</p>
-    </div>
+    <?php else: ?>
+      <?php foreach ($feedbackGuru as $fb): ?>
+        <div class="feedback-card" style="margin-bottom:10px">
+          <div class="feedback-header">
+            <div class="feedback-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="currentColor" stroke-width="2"/></svg></div>
+            <span class="feedback-title">Feedback <?= htmlspecialchars($fb['sumber']) ?></span>
+            <span class="feedback-new"><?= htmlspecialchars(date('d/m/Y', strtotime((string)$fb['waktu']))) ?></span>
+          </div>
+          <p class="feedback-text"><?= nl2br(htmlspecialchars((string)$fb['umpan'])) ?></p>
+        </div>
+      <?php endforeach; ?>
+    <?php endif; ?>
   </div>
 
   <!-- Riwayat Materi -->
   <div class="anim">
     <div class="section-hdr" style="margin-bottom:12px">
-      <h2>Riwayat Materi</h2>
-      <a href="#" class="lihat-semua" onclick="showToast('Riwayat lengkap'); return false;">Lihat semua <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></a>
+      <h2>Riwayat Penilaian</h2>
+      <a href="profil-siswa.php" class="lihat-semua">Lihat semua <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></a>
     </div>
     <div class="riwayat-list">
-      <a href="#" class="riwayat-card" onclick="showToast('Servis Bawah Bola Voli'); return false;">
-        <div class="riwayat-icon orange">
-          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 16v.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+      <?php if (!$riwayatNilai): ?>
+        <div class="riwayat-card" style="cursor:default">
+          <div class="riwayat-info">
+            <p class="riwayat-title">Belum ada penilaian</p>
+            <p class="riwayat-date">Nilai muncul setelah tugas atau asesmen dinilai guru.</p>
+          </div>
         </div>
-        <div class="riwayat-info">
-          <p class="riwayat-title">Servis Bawah Bola Voli – Kelas X-1</p>
-          <p class="riwayat-date">02 Mei 2025 &nbsp;•&nbsp; Selesai</p>
-        </div>
-        <div class="riwayat-score">86</div>
-        <span class="riwayat-arrow"><svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
-      </a>
-      <a href="#" class="riwayat-card" onclick="showToast('Dribbling Sepak Bola'); return false;">
-        <div class="riwayat-icon blue">
-          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="currentColor" stroke-width="1.5"/><path d="M2 12h20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        </div>
-        <div class="riwayat-info">
-          <p class="riwayat-title">Dribbling Sepak Bola – Kelas X-1</p>
-          <p class="riwayat-date">28 Apr 2025 &nbsp;•&nbsp; Selesai</p>
-        </div>
-        <div class="riwayat-score">89</div>
-        <span class="riwayat-arrow"><svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
-      </a>
+      <?php else: ?>
+        <?php foreach ($riwayatNilai as $rw): ?>
+          <?php
+            $warna = ['Kognitif' => 'blue', 'Psikomotor' => 'orange', 'Afektif' => 'green'][$rw['jenis']] ?? 'blue';
+            $nilaiRw = (int)round((float)$rw['nilai']);
+          ?>
+          <div class="riwayat-card" style="cursor:default">
+            <div class="riwayat-icon <?= $warna ?>">
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="riwayat-info">
+              <p class="riwayat-title">Penilaian <?= htmlspecialchars($rw['jenis']) ?></p>
+              <p class="riwayat-date"><?= htmlspecialchars(date('d M Y', strtotime((string)$rw['waktu']))) ?> &nbsp;•&nbsp; <?= $nilaiRw >= 70 ? 'Tuntas' : 'Belum tuntas' ?></p>
+            </div>
+            <div class="riwayat-score"><?= $nilaiRw ?></div>
+          </div>
+        <?php endforeach; ?>
+      <?php endif; ?>
     </div>
   </div>
 
 </div>
 
 <nav class="bottom-nav">
-  <a href="#" class="nav-item active" aria-label="Beranda" aria-current="page">
+  <a href="dashboard-siswa.php" class="nav-item active" aria-label="Beranda" aria-current="page">
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="2"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2"/></svg>
     <span>Beranda</span>
@@ -342,7 +370,7 @@ if ($conn) {
     <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" stroke-width="2"/><path d="M9 7h6M9 11h6M9 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     <span>Nilai</span>
   </a>
-  <a href="#" class="nav-item" onclick="showToast('Halaman Feedback'); return false;" aria-label="Feedback">
+  <a href="dashboard-siswa.php#feedback-guru" class="nav-item" aria-label="Feedback">
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="currentColor" stroke-width="2"/></svg>
     <span>Feedback</span>

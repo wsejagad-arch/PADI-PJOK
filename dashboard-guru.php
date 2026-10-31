@@ -361,6 +361,7 @@ if($conn) {
       padding: 6px 12px;
       border-radius: 20px;
       cursor: pointer;
+      text-decoration: none;
       transition: all .2s;
       white-space: nowrap;
     }
@@ -884,12 +885,12 @@ if($conn) {
   </div>
         <div class="session-badges">
           <span class="badge-aktif">Sesi Aktif</span>
-          <button class="btn-detail" onclick="showToast('Membuka detail sesi...')">
+          <a class="btn-detail" href="pantau-siswa.php">
             Lihat Detail
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
-          </button>
+          </a>
         </div>
       </div>
       <div class="session-stats" role="region" aria-label="Statistik sesi aktif">

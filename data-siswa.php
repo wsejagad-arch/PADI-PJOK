@@ -3,6 +3,15 @@ require_once 'auth.php';
 wajibLoginGuru();
 require 'koneksi.php';
 
+/** Kembali ke halaman data siswa dengan pesan status. */
+if (!function_exists('padi_data_siswa_kembali')) {
+function padi_data_siswa_kembali($kelas, $info)
+{
+    header('Location: data-siswa.php?kelas=' . urlencode((string)$kelas) . '&info=' . urlencode((string)$info));
+    exit;
+}
+}
+
 // --- HANDLE POST REQUESTS ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!padi_csrf_valid()) {
@@ -68,11 +77,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header("Location: data-siswa.php");
         exit;
     }
+
+    // 5. Edit Siswa (nama, NIS, kelas)
+    if ($action === 'edit_siswa' && isset($_POST['id'])) {
+        $id        = (int)$_POST['id'];
+        $nama      = trim((string)($_POST['nama'] ?? ''));
+        $nis       = trim((string)($_POST['nis'] ?? ''));
+        $kelasBaru = strtoupper(trim((string)($_POST['kelas'] ?? '')));
+        $kelasLama = strtoupper(trim((string)($_POST['kelas_lama'] ?? '')));
+
+        if (mb_strlen($nama) < 2) {
+            padi_data_siswa_kembali($kelasLama, 'Gagal menyimpan: nama siswa minimal 2 karakter.');
+        }
+        if ($kelasBaru === '') {
+            padi_data_siswa_kembali($kelasLama, 'Gagal menyimpan: kelas wajib dipilih.');
+        }
+
+        $stmt = $conn->prepare("UPDATE master_siswa SET nama = ?, nis = ?, kelas = ? WHERE id = ?");
+        $stmt->bind_param("sssi", $nama, $nis, $kelasBaru, $id);
+        $stmt->execute();
+        $stmt->close();
+
+        $stmt = $conn->prepare("INSERT IGNORE INTO master_kelas (nama_kelas) VALUES (?)");
+        $stmt->bind_param("s", $kelasBaru);
+        $stmt->execute();
+        $stmt->close();
+
+        padi_data_siswa_kembali($kelasBaru, 'Data siswa "' . $nama . '" diperbarui.');
+    }
+
+    // 6. Reset Password Siswa → kembali ke token sesi kelas yang aktif
+    if ($action === 'reset_password_siswa' && isset($_POST['id'])) {
+        $id    = (int)$_POST['id'];
+        $kelas = strtoupper(trim((string)($_POST['kelas'] ?? '')));
+
+        $stmt = $conn->prepare("UPDATE master_siswa SET password = NULL WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $stmt->close();
+
+        padi_data_siswa_kembali($kelas, 'Password siswa direset. Siswa masuk memakai token sesi kelas yang sedang aktif lalu membuat password baru.');
+    }
 }
 
 // --- FILTER ---
 $filterKelas = strtoupper(trim((string)($_GET['kelas'] ?? '')));
 $cari = trim((string)($_GET['q'] ?? ''));
+$info = trim((string)($_GET['info'] ?? ''));
 
 // --- DAFTAR KELAS ---
 $kelas_list = [];
@@ -164,6 +215,25 @@ $jumlahKelas = count($kelas_list);
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: var(--radius-sm); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; background: var(--blue); color: #fff; text-decoration: none; border: 0; }
     .btn-ringan { background: #fff; color: var(--blue); border: 1px solid var(--border); }
     .btn-hapus { background: #fff; color: var(--red); border: 1px solid #FCA5A5; height: 28px; padding: 0 10px; font-size: 11px; }
+    .btn-edit, .btn-reset, .btn-hapus { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 10px; border-radius: var(--radius-sm); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; background: #fff; border: 1px solid var(--border); }
+    .btn-edit { color: var(--blue); border-color: #BFDBFE; }
+    .btn-reset { color: #B45309; border-color: #FCD34D; }
+    .btn-hapus { color: var(--red); border-color: #FCA5A5; }
+    .aksi-baris { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: flex-end; }
+    @media (max-width: 640px) {
+      .table-wrap { overflow-x: visible; }
+      table { min-width: 0; }
+      thead { display: none; }
+      tbody tr { display: grid; grid-template-columns: 1fr; gap: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; }
+      tbody tr:last-child { margin-bottom: 0; }
+      tbody td { border: 0; padding: 0; width: auto; }
+      td.no { display: none; }
+      td.nis { font-size: 11px; }
+      td.nama { font-size: 13.5px; }
+      td.aksi { text-align: left; }
+      .aksi-baris { justify-content: flex-start; }
+    }
+    .flash { border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12.5px; font-weight: 600; background: #DCFCE7; color: #166534; border: 1px solid #86EFAC; }
 
     .filter { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; margin-top: 14px; }
     .filter label { display: block; font-size: 11px; font-weight: 700; color: var(--text-3); margin-bottom: 4px; }
@@ -176,14 +246,14 @@ $jumlahKelas = count($kelas_list);
     .kelas-aksi { display: flex; gap: 6px; flex-wrap: wrap; }
 
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 420px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
     th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); background: #F8FAFC; white-space: nowrap; }
     tbody tr:last-child td { border-bottom: 0; }
     td.no, th.no { width: 44px; text-align: right; color: var(--text-3); }
     td.nis { width: 120px; white-space: nowrap; color: var(--text-3); }
     td.nama { font-weight: 600; }
-    td.aksi { width: 64px; text-align: right; }
+    td.aksi { width: 210px; text-align: right; }
 
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 4px; }
     .form-group label { display: block; font-size: 11px; font-weight: 700; color: var(--text-3); margin-bottom: 4px; }
@@ -214,6 +284,10 @@ $jumlahKelas = count($kelas_list);
   </header>
 
   <main class="content">
+    <?php if ($info !== ''): ?>
+      <div class="flash" role="status"><?= htmlspecialchars($info, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php endif; ?>
+
     <section class="card">
       <h1>Data Siswa</h1>
       <p class="lead"><?= $totalSiswa ?> siswa ditampilkan dari <?= $jumlahKelas ?> kelas. Klik <strong>Ekspor</strong> atau <strong>Cetak</strong> pada tiap kelas.</p>
@@ -288,13 +362,28 @@ $jumlahKelas = count($kelas_list);
                     <td class="nis"><?= htmlspecialchars($siswa['nis'] !== '' && $siswa['nis'] !== null ? $siswa['nis'] : '-', ENT_QUOTES, 'UTF-8') ?></td>
                     <td class="nama"><?= htmlspecialchars($siswa['nama'], ENT_QUOTES, 'UTF-8') ?></td>
                     <td class="aksi">
-                      <form method="post" action="data-siswa.php" onsubmit="return confirm('Hapus <?= htmlspecialchars($siswa['nama'], ENT_QUOTES) ?> dari kelas ini?');" style="display:inline">
-                        <?= padi_csrf_field() ?>
-                        <input type="hidden" name="action" value="delete_siswa"/>
-                        <input type="hidden" name="id" value="<?= (int)$siswa['id'] ?>"/>
-                        <input type="hidden" name="kelas" value="<?= htmlspecialchars($kls, ENT_QUOTES) ?>"/>
-                        <button type="submit" class="btn btn-hapus">Hapus</button>
-                      </form>
+                      <div class="aksi-baris">
+                        <button type="button" class="btn-edit"
+                                data-id="<?= (int)$siswa['id'] ?>"
+                                data-nama="<?= htmlspecialchars((string)$siswa['nama'], ENT_QUOTES, 'UTF-8') ?>"
+                                data-nis="<?= htmlspecialchars((string)($siswa['nis'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                data-kelas="<?= htmlspecialchars($kls, ENT_QUOTES, 'UTF-8') ?>"
+                                onclick="bukaEditSiswa(this)">Edit</button>
+                        <form method="post" action="data-siswa.php" onsubmit="return confirm('Reset password <?= htmlspecialchars($siswa['nama'], ENT_QUOTES) ?>? Siswa harus masuk lagi memakai token sesi kelas yang aktif.');" style="display:inline">
+                          <?= padi_csrf_field() ?>
+                          <input type="hidden" name="action" value="reset_password_siswa"/>
+                          <input type="hidden" name="id" value="<?= (int)$siswa['id'] ?>"/>
+                          <input type="hidden" name="kelas" value="<?= htmlspecialchars($kls, ENT_QUOTES) ?>"/>
+                          <button type="submit" class="btn-reset">Reset</button>
+                        </form>
+                        <form method="post" action="data-siswa.php" onsubmit="return confirm('Hapus <?= htmlspecialchars($siswa['nama'], ENT_QUOTES) ?> dari kelas ini?');" style="display:inline">
+                          <?= padi_csrf_field() ?>
+                          <input type="hidden" name="action" value="delete_siswa"/>
+                          <input type="hidden" name="id" value="<?= (int)$siswa['id'] ?>"/>
+                          <input type="hidden" name="kelas" value="<?= htmlspecialchars($kls, ENT_QUOTES) ?>"/>
+                          <button type="submit" class="btn-hapus">Hapus</button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 <?php endforeach; ?>
@@ -339,6 +428,41 @@ $jumlahKelas = count($kelas_list);
     </section>
   </main>
 
+  <!-- Modal Edit Siswa -->
+  <div class="modal-overlay" id="modal-edit">
+    <div class="modal">
+      <button class="modal-close" type="button" onclick="tutupEditSiswa()" aria-label="Tutup">&times;</button>
+      <h3>Edit Data Siswa</h3>
+      <p>Ubah nama, NIS, atau pindahkan siswa ke kelas lain.</p>
+      <form method="post" action="data-siswa.php" id="form-edit-siswa">
+        <?= padi_csrf_field() ?>
+        <input type="hidden" name="action" value="edit_siswa"/>
+        <input type="hidden" name="id" id="e-id" value=""/>
+        <input type="hidden" name="kelas_lama" id="e-kelas-lama" value=""/>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label for="e-nama">Nama lengkap</label>
+          <input class="form-input" type="text" id="e-nama" name="nama" maxlength="100" required/>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label for="e-nis">NIS (opsional)</label>
+          <input class="form-input" type="text" id="e-nis" name="nis" maxlength="30"/>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label for="e-kelas">Kelas</label>
+          <select id="e-kelas" name="kelas" required>
+            <?php foreach ($kelas_list as $k): ?>
+              <option value="<?= htmlspecialchars($k, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($k, ENT_QUOTES, 'UTF-8') ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="top-actions">
+          <button class="btn" type="submit">Simpan Perubahan</button>
+          <button class="btn btn-ringan" type="button" onclick="tutupEditSiswa()">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal Tambah Kelas -->
   <div class="modal-overlay" id="modal-kelas">
     <div class="modal">
@@ -375,6 +499,29 @@ $jumlahKelas = count($kelas_list);
       </form>
     </div>
   </div>
+
+  <script>
+    var modalEdit = document.getElementById('modal-edit');
+    function bukaEditSiswa(el) {
+      document.getElementById('e-id').value = el.dataset.id || '';
+      document.getElementById('e-nama').value = el.dataset.nama || '';
+      document.getElementById('e-nis').value = el.dataset.nis || '';
+      document.getElementById('e-kelas-lama').value = el.dataset.kelas || '';
+      var pilih = document.getElementById('e-kelas');
+      if (pilih) { pilih.value = el.dataset.kelas || pilih.value; }
+      modalEdit.style.display = 'flex';
+      document.getElementById('e-nama').focus();
+    }
+    function tutupEditSiswa() { modalEdit.style.display = 'none'; }
+    document.querySelectorAll('.modal-overlay').forEach(function (m) {
+      m.addEventListener('click', function (e) { if (e.target === m) m.style.display = 'none'; });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay').forEach(function (m) { m.style.display = 'none'; });
+      }
+    });
+  </script>
 
   <nav class="nav-bottom" role="navigation" aria-label="Navigasi utama">
     <a href="dashboard-guru.php" class="nav-item" id="nav-beranda" aria-label="Beranda">

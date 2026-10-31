@@ -749,7 +749,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     </svg>
     <span>Beranda</span>
   </a>
-  <a href="#" class="nav-item" id="nav-siswa" aria-label="Siswa" onclick="showToast('Halaman Siswa segera hadir'); return false;">
+  <a href="data-siswa.php" class="nav-item" id="nav-siswa" aria-label="Siswa">
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="9" cy="7" r="3" stroke="currentColor" stroke-width="2"/>
@@ -758,14 +758,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     </svg>
     <span>Siswa</span>
   </a>
-  <a href="#" class="nav-item active" id="nav-token" aria-label="Token Materi" aria-current="page">
+  <a href="buat-token.php" class="nav-item active" id="nav-token" aria-label="Token Materi" aria-current="page">
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M2 9a2 2 0 012-2h16a2 2 0 012 2v1a2 2 0 010 4v1a2 2 0 01-2 2H4a2 2 0 01-2-2v-1a2 2 0 010-4V9z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
     </svg>
     <span>Token Materi</span>
   </a>
-  <a href="#" class="nav-item" id="nav-riwayat" aria-label="Riwayat" onclick="showToast('Halaman Riwayat segera hadir'); return false;">
+  <a href="aktivitas-guru.php" class="nav-item" id="nav-riwayat" aria-label="Riwayat">
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
@@ -773,7 +773,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     </svg>
     <span>Riwayat</span>
   </a>
-  <a href="#" class="nav-item" id="nav-profil" aria-label="Profil" onclick="showToast('Halaman Profil segera hadir'); return false;">
+  <a href="profil-guru.php" class="nav-item" id="nav-profil" aria-label="Profil">
     <div class="nav-indicator"></div>
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>

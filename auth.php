@@ -306,8 +306,15 @@ function pastikanTabelAuth($conn)
         nama VARCHAR(100) NOT NULL,
         username VARCHAR(50) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
+        nip VARCHAR(30) NULL DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
+
+    // 2a. Kolom NIP (untuk tanda tangan laporan) pada instalasi lama
+    $cek = $conn->query("SHOW COLUMNS FROM guru LIKE 'nip'");
+    if ($cek && $cek->num_rows === 0) {
+        $conn->query("ALTER TABLE guru ADD COLUMN nip VARCHAR(30) NULL DEFAULT NULL AFTER password");
+    }
 
     // 2b. Jadwal pelajaran per kelas (dipakai guru & dashboard siswa)
     $conn->query("CREATE TABLE IF NOT EXISTS jadwal (
@@ -503,6 +510,23 @@ function padi_pastikan_tabel_jadwal($conn)
         KEY idx_jadwal_kelas (kelas, hari)
     )");
     if ($ok) $_SESSION['padi_skema_jadwal'] = 1;
+}
+}
+
+/**
+ * Pastikan kolom `nip` pada tabel guru ada (dipakai nama + NIP di tanda
+ * tangan laporan). Idempoten dan aman dipanggil berulang.
+ */
+if (!function_exists('padi_pastikan_kolom_nip_guru')) {
+function padi_pastikan_kolom_nip_guru($conn)
+{
+    static $selesai = false;
+    if ($selesai || !$conn || !empty($conn->connect_errno)) return;
+    $selesai = true;
+    $cek = $conn->query("SHOW COLUMNS FROM guru LIKE 'nip'");
+    if ($cek && $cek->num_rows === 0) {
+        $conn->query("ALTER TABLE guru ADD COLUMN nip VARCHAR(30) NULL DEFAULT NULL AFTER password");
+    }
 }
 }
 
@@ -854,6 +878,7 @@ function loginGuru($conn, $username, $password)
         $out['message'] = 'Database tidak terhubung.';
         return $out;
     }
+    padi_pastikan_kolom_nip_guru($conn);
     $username = strtolower(trim((string)$username));
     $password = trim((string)$password);
     if ($username === '' || $password === '') {
@@ -868,7 +893,7 @@ function loginGuru($conn, $username, $password)
         return $out;
     }
 
-    $stmt = $conn->prepare("SELECT id, nama, username, password FROM guru WHERE LOWER(username) = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT id, nama, username, password, nip FROM guru WHERE LOWER(username) = ? LIMIT 1");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -893,6 +918,7 @@ function loginGuru($conn, $username, $password)
     }
     $_SESSION['guru_id']       = (int)$g['id'];
     $_SESSION['guru_nama']     = $g['nama'];
+    $_SESSION['guru_nip']      = (string)($g['nip'] ?? '');
     $_SESSION['guru_username'] = $g['username'];
 
     $out['success'] = true;

@@ -150,7 +150,10 @@ Untuk merilis aset baru, cukup ubah berkasnya — `?v=` diambil dari `filemtime`
   Rata-rata, Predikat) dengan filter kelas + nama siswa; rubrik 0–20 dikonversi ke skala 0–100.
   Tersedia **Ekspor CSV** dan **Ekspor Excel** yang mengikuti filter aktif.
 - **Data siswa** (`data-siswa.php`) berupa tabel per kelas (No, NIS, Nama, Aksi) dengan filter kelas + nama,
-  tombol Tambah Kelas / Import CSV, serta Ekspor & Cetak per kelas.
+  tombol Tambah Kelas / Import CSV, serta Ekspor & Cetak per kelas. Kolom **Aksi** berisi
+  **Edit** (modal nama/NIS/kelas, siswa bisa dipindah kelas), **Reset** (password siswa dikosongkan →
+  siswa masuk lagi memakai token sesi kelas aktif lalu membuat password baru), dan **Hapus**.
+  Di layar < 640 px tiap baris berubah menjadi kartu bertumpuk agar tanpa gulir horizontal.
 - **Laporan pembelajaran** (`laporan.php`) = raport kelas + raport individu dengan filter kelas dan pilihan siswa:
   ringkasan rata-rata indikator, sebaran predikat, daftar remedial/pengayaan/data belum lengkap, narasi
   **analisis AI ringan** (aturan kriteria: ≥85 Sangat Baik · 70–84 Baik · 50–69 Cukup · <50 Kurang · tuntas ≥70),
@@ -164,7 +167,10 @@ Halaman data guru memakai `ui-cetak.php` + `aset/cetak.css`:
   kop surat (logo + instansi + nama sekolah + alamat/NPSN) dan tombol **Cetak / Simpan PDF**
   (dipindahkan `app.js` ke atas konten agar tidak menutupi form).
 - `padi_cetak_ttd()` sebelum `</body>` → blok tanda tangan: Kepala Sekolah (kiri) dan Guru Mata Pelajaran PJOK
-  (kanan, nama dari akun guru yang login) + NIP.
+  (kanan, nama + NIP dari akun guru yang login) + NIP.
+- Nama & NIP guru diisi sekali di **Profil → “Nama & NIP untuk Tanda Tangan Laporan”**
+  (tersimpan di tabel `guru` kolom `nama` + `nip`, sesi ikut diperbarui). Cetakan memakai urutan
+  sesi → database → `.env` (`GURU_NAMA`/`GURU_NIP`), jadi semua kop tanda tangan otomatis sinkron.
 - Saat dicetak: topbar, navigasi, filter, tombol, dan bayangan dihilangkan; tabel bergaris hitam;
   kartu berubah menjadi blok polos. Halaman yang memakai: rekap penilaian, rekap per siswa, pantau siswa,
   jadwal, nilai, data siswa, laporan, verifikasi nilai, perkembangan semester.

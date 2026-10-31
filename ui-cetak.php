@@ -72,15 +72,47 @@ function padi_cetak_siap($judul, $subjudul = '', $opsi = [])
 }
 }
 
+/** Identitas guru yang sedang login (nama/nip): sesi → DB → env. */
+if (!function_exists('padi_cetak_identitas_guru')) {
+function padi_cetak_identitas_guru($kolom)
+{
+    $kolom = ($kolom === 'nip') ? 'nip' : 'nama';
+    $nilai = trim((string)($_SESSION['guru_' . $kolom] ?? ''));
+    $id = (int)($_SESSION['guru_id'] ?? 0);
+    $koneksi = $GLOBALS['conn'] ?? null;
+
+    if ($nilai === '' && $id > 0 && $koneksi instanceof mysqli) {
+        $stmt = $koneksi->prepare("SELECT nama, nip FROM guru WHERE id = ? LIMIT 1");
+        if ($stmt) {
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            $baris = $res ? $res->fetch_assoc() : null;
+            $stmt->close();
+            if ($baris) {
+                $_SESSION['guru_nama'] = (string)($baris['nama'] ?? '');
+                $_SESSION['guru_nip']  = (string)($baris['nip'] ?? '');
+                $nilai = trim((string)($_SESSION['guru_' . $kolom] ?? ''));
+            }
+        }
+    }
+
+    if ($nilai === '') {
+        $nilai = padi_cetak_env($kolom === 'nip' ? 'GURU_NIP' : 'GURU_NAMA', '');
+    }
+    return $nilai;
+}
+}
+
 if (!function_exists('padi_cetak_ttd')) {
 function padi_cetak_ttd()
 {
-    $guru = trim((string)($_SESSION['guru_nama'] ?? ''));
-    if ($guru === '') $guru = padi_cetak_env('GURU_NAMA', '________________');
+    $guru = padi_cetak_identitas_guru('nama');
+    if ($guru === '') $guru = '________________';
 
     $kepala = padi_cetak_env('KEPALA_SEKOLAH', '________________');
     $kota   = padi_cetak_env('SEKOLAH_KOTA', '');
-    $nipGuru = padi_cetak_env('GURU_NIP', '');
+    $nipGuru = padi_cetak_identitas_guru('nip');
     $nipKepala = padi_cetak_env('KEPALA_SEKOLAH_NIP', '');
 
     $hari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
