@@ -698,7 +698,7 @@ nav.bottom-nav, nav.nav-bottom {
     font-size: 14px;
     letter-spacing: 1px;
   }
-  html[data-sidebar="compact"] .sidebar-menu-heading { display: none; }
+  html[data-sidebar="compact"] .sidebar-menu-heading { display: none !important; }
   html[data-sidebar="compact"] nav.bottom-nav .nav-item,
   html[data-sidebar="compact"] nav.nav-bottom .nav-item {
     justify-content: center !important;
