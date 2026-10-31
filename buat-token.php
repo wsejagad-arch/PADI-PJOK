@@ -7,7 +7,6 @@ require 'koneksi.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_token') {
     header('Content-Type: application/json');
     padi_wajib_csrf();
-    $token = strtoupper(trim((string)($_POST['token'] ?? '')));
     $kelas = mb_substr(trim((string)($_POST['kelas'] ?? '')), 0, 50);
     $materi = mb_substr(trim((string)($_POST['materi'] ?? '')), 0, 100);
 
@@ -20,10 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 
-    // Token pendek/custom tidak diterima: server membangkitkan 8 karakter acak.
-    if (!preg_match('/^[A-Z0-9]{6,12}$/', $token)) {
-        $token = padi_token_acak(8);
+    // Token boleh dibuat sendiri oleh guru (4-20 huruf/angka); kosong = acak.
+    $token_kustom = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($_POST['token'] ?? '')));
+    if ($token_kustom !== '' && (strlen($token_kustom) < 4 || strlen($token_kustom) > 20)) {
+        echo json_encode(['success' => false, 'message' => 'Token sendiri harus 4-20 karakter huruf/angka.']);
+        exit;
     }
+
+    $token = $token_kustom !== '' ? $token_kustom : padi_token_acak(8);
     for ($i = 0; $i < 5; $i++) {
         $cek = $conn->prepare("SELECT id FROM sesi WHERE token = ? LIMIT 1");
         $cek->bind_param("s", $token);
@@ -31,6 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $sudah = $cek->get_result()->num_rows > 0;
         $cek->close();
         if (!$sudah) break;
+        if ($token_kustom !== '') {
+            echo json_encode(['success' => false, 'message' => 'Token ' . $token_kustom . ' sudah dipakai. Gunakan token lain.']);
+            exit;
+        }
         $token = padi_token_acak(8);
     }
 
@@ -214,6 +221,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
       font-weight: 600;
       color: var(--text-3);
     }
+
+    .field-hint {
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-3);
+      margin: 0;
+    }
+    .field-hint.is-error { color: #DC2626; font-weight: 600; }
 
     .select-wrap { position: relative; }
 
@@ -611,10 +626,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         </svg>
       </div>
       <div class="field-body">
-        <label class="field-label" for="input-custom-token">Token (Opsional)</label>
+        <label class="field-label" for="input-custom-token">Token Sendiri (Opsional)</label>
         <div class="select-wrap">
-          <input type="text" class="field-select" id="input-custom-token" name="custom-token" placeholder="Biarkan kosong untuk token acak" style="text-transform: uppercase;">
+          <input type="text" class="field-select" id="input-custom-token" name="custom-token"
+                 placeholder="Kosongkan untuk token acak" maxlength="20" autocomplete="off"
+                 autocapitalize="characters" spellcheck="false"
+                 oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); periksaTokenKustom();"
+                 style="text-transform: uppercase;">
         </div>
+        <p class="field-hint" id="hint-custom-token">4–20 karakter huruf/angka. Kosongkan agar sistem membuat token acak.</p>
       </div>
     </div>
 
@@ -783,19 +803,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
   let currentToken = '';
 
-  function generateToken() {
-    const customToken = document.getElementById('input-custom-token').value.trim().toUpperCase();
-    // Token custom minimal 6 karakter; bila tidak valid, server membuat token acak.
-    if (/^[A-Z0-9]{6,12}$/.test(customToken)) {
-      return customToken;
-    }
+  function tokenKustom() {
+    return document.getElementById('input-custom-token').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  function tokenAcak(panjang = 8) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    const acak = new Uint32Array(8);
+    const acak = new Uint32Array(panjang);
     (window.crypto || window.msCrypto).getRandomValues(acak);
     return Array.from(acak, n => chars[n % chars.length]).join('');
   }
 
+  // Validasi token buatan sendiri; kosong = pakai token acak.
+  function periksaTokenKustom() {
+    const kode = tokenKustom();
+    const hint = document.getElementById('hint-custom-token');
+    const salah = kode.length > 0 && (kode.length < 4 || kode.length > 20);
+    hint.classList.toggle('is-error', salah);
+    hint.textContent = salah
+      ? 'Token sendiri harus 4–20 karakter huruf/angka.'
+      : '4–20 karakter huruf/angka. Kosongkan agar sistem membuat token acak.';
+    return !salah;
+  }
+
   function buatToken() {
+    if (!periksaTokenKustom()) {
+      showToast('❌ Periksa token sendiri (4–20 karakter huruf/angka)');
+      document.getElementById('input-custom-token').focus();
+      return;
+    }
     const btn = document.getElementById('btn-buat');
     btn.disabled = true;
     btn.innerHTML = `
@@ -805,7 +841,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
       </svg>
       Membuat Token...`;
 
-    currentToken = generateToken();
+    currentToken = tokenKustom() || tokenAcak();
     const kelas = document.getElementById('select-kelas').value;
     const materi = document.getElementById('select-materi').value;
 
@@ -841,6 +877,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         // Scroll into view
         setTimeout(() => resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+
+        // Token buatan sendiri hanya sekali pakai: kosongkan agar pembuatan berikutnya memakai token baru.
+        document.getElementById('input-custom-token').value = '';
+        periksaTokenKustom();
 
         btn.disabled = false;
         btn.innerHTML = `
