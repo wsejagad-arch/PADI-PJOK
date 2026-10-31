@@ -117,7 +117,7 @@ deploy.sh              # skrip deploy otomatis (Proxmox/Debian)
 Satu lapisan aset dipakai semua halaman lewat `ui-head.php`:
 
 - **Mode PC** (≥1024px): navigasi bawah berubah jadi **sidebar kiri** 248px, konten melebar 1180px, daftar kartu jadi grid.
-- **Mode mobile** (<1024px): tetap app-like — bottom-nav, `safe-area` iOS, target sentuh ≥40px.
+- **Mode mobile** (<1024px): tetap app-like — bottom-nav selebar layar (tanpa celah kiri/kanan meski layar >480px), `safe-area` iOS, target sentuh ≥40px.
 - Deteksi otomatis via media query (`data-mode="pc|mobile"` di `<html>`), tanpa tombol manual.
 
 Berkas: `aset/app.css`, `aset/app.js`, `ui-head.php`.

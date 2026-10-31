@@ -324,13 +324,67 @@ nav.bottom-nav, nav.nav-bottom {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  height: 64px;
-  padding-bottom: env(safe-area-inset-bottom);
+  height: auto;
+  min-height: 64px;
+  padding: 4px 8px calc(4px + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--padi-slate-200);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
+}
+
+/* Mobile: footer wajib selebar layar. Aturan inline lama di tiap halaman
+   (max-width 480px + translateX(-50%)) membuat footer menyisakan celah
+   kiri/kanan di layar > 480px, jadi di-override di sini.
+   Batas 1023.99px dipakai agar lebar pecahan (DPR/zoom) tetap masuk mobile. */
+@media (max-width: 1023.99px) {
+  nav.bottom-nav,
+  nav.nav-bottom {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 64px !important;
+    transform: none !important;
+    padding: 4px 8px calc(4px + env(safe-area-inset-bottom)) !important;
+    justify-content: space-around !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  nav.bottom-nav::-webkit-scrollbar,
+  nav.nav-bottom::-webkit-scrollbar {
+    display: none;
+  }
+
+  nav.bottom-nav .nav-item,
+  nav.nav-bottom .nav-item {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    white-space: nowrap;
+  }
+
+  nav.bottom-nav .nav-item span,
+  nav.nav-bottom .nav-item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  nav.bottom-nav .nav-item svg,
+  nav.nav-bottom .nav-item svg {
+    flex-shrink: 0;
+  }
+
+  /* Konten tidak tertutup footer saat tinggi footer bertambah (safe-area) */
+  body:has(nav.bottom-nav),
+  body:has(nav.nav-bottom) {
+    padding-bottom: calc(74px + env(safe-area-inset-bottom)) !important;
+  }
 }
 
 /* Sembunyikan elemen dekorasi desktop saat di mobile */
@@ -437,6 +491,7 @@ nav.bottom-nav, nav.nav-bottom {
 
   /* ── Menu Items ── */
   nav.bottom-nav .nav-item, nav.nav-bottom .nav-item {
+    flex: 0 0 auto !important;
     flex-direction: row !important;
     justify-content: flex-start !important;
     align-items: center !important;
