@@ -12,11 +12,14 @@ if (empty($conn)) {
 padi_berbagi_sesi();
 padi_mulai_sesi();
 
-/** Gagal → balik ke halaman login guru dengan pesan. */
+/** Gagal → balik ke halaman login guru dengan pesan (GET agar terlihat di form). */
 function padi_oauth_gagal($pesan)
 {
     $_SESSION['oauth_state'] = '';
-    padi_kembali('login-guru.php', $pesan);
+    if (!headers_sent()) {
+        header('Location: login-guru.php?oauth_error=' . urlencode((string)$pesan));
+    }
+    exit;
 }
 
 if (!padi_oauth_siap()) {

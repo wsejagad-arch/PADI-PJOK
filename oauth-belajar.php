@@ -13,7 +13,8 @@ padi_berbagi_sesi();
 padi_mulai_sesi();
 
 if (!padi_oauth_siap()) {
-    padi_kembali('login-guru.php', 'Login Belajar.id belum aktif: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET belum diisi di .env server.');
+    header('Location: login-guru.php?oauth_error=' . urlencode('Login Belajar.id belum aktif: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET belum diisi di .env server.'));
+    exit;
 }
 
 $state = bin2hex(random_bytes(16));

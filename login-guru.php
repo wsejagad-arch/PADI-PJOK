@@ -22,6 +22,9 @@ if (!empty($_SESSION['guru_id'])) {
 padi_pastikan_skema_auth($conn);
 
 $err = '';
+if (!empty($_GET['oauth_error'])) {
+    $err = trim((string)$_GET['oauth_error']);
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'login') {
