@@ -20,6 +20,9 @@ if (!empty($_SESSION['guru_id'])) {
     padi_kembali('dashboard-guru.php');
 }
 
+// Pastikan kolom password & akun guru tersedia (sekali per sesi).
+padi_pastikan_skema_auth($conn);
+
 $err = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -161,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="info-note-icon">
         <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </div>
-      <p>Akun awal: <strong>guru</strong> / <strong>guru123</strong>. Ubah segera setelah berhasil masuk.</p>
+      <p>Lupa atau belum punya password? Hubungi admin sekolah — password awal guru dibuat otomatis di server, bukan di halaman ini.</p>
     </div>
 
     <a class="back-link" href="index.php">&larr; Kembali ke halaman utama</a>

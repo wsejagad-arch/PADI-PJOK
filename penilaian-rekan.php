@@ -5,9 +5,11 @@ wajibLoginSiswa();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_rekan') {
     require 'koneksi.php';
     header('Content-Type: application/json');
-    $nilai = intval($_POST['nilai'] ?? 0);
-    $umpan = $_POST['umpan_balik'] ?? '';
-    $siswa_id = $_SESSION['siswa_id'];
+    padi_wajib_csrf();
+    // Rubrik: 5 indikator x skala 1-4 → nilai sah 0..20.
+    $nilai = max(0, min(20, intval($_POST['nilai'] ?? 0)));
+    $umpan = mb_substr(trim((string)($_POST['umpan_balik'] ?? '')), 0, 300);
+    $siswa_id = (int)$_SESSION['siswa_id'];
     
     $stmt = $conn->prepare("SELECT id FROM penilaian_rekan WHERE penilai_id = ?");
     $stmt->bind_param("i", $siswa_id);
@@ -399,7 +401,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
       body: new URLSearchParams({
         action: 'save_rekan',
         nilai: nilai,
-        umpan_balik: umpan_balik
+        umpan_balik: umpan_balik,
+        csrf: '<?= padi_csrf_token() ?>'
       })
     }).then(r=>r.json()).then(data=>{
       if(data.success){

@@ -162,7 +162,7 @@ exit(0);
   ' >/dev/null 2>&1) && info "Skema database dibuat." \
                      || warn "setup_db.php tidak berjalan otomatis — jalankan manual bila perlu."
 else
-  warn "Koneksi DB dari PHP gagal — periksa .env, lalu buka /setup_db.php di browser."
+  warn "Koneksi DB dari PHP gagal — periksa .env, lalu buka /instal/<token> di browser (token = PADI_SETUP_TOKEN)."
 fi
 
 # --------------------------- 7. Nginx vhost ----------------------------------
@@ -210,7 +210,27 @@ server {
 
     # Jangan layani berkas sensitif
     location ~* /\.(env|git|htaccess|htpasswd) { deny all; return 404; }
-    location ~* \.(sql|bak|log|ini|sh)$ { deny all; return 404; }
+    location ~* \.(sql|bak|log|ini|sh|md|txt)$ { deny all; return 404; }
+    location ~ /\.(?!well-known) { deny all; return 404; }
+
+    # Berkas internal tidak boleh dibuka langsung
+    location ~ ^/(auth|auth-boot|koneksi|pesan-db|dashboard-guru-tmp)\.php$ { return 404; }
+
+    # Installer hanya lewat alamat samar /instal/<TOKEN>
+    location = /setup_db.php {
+        internal;
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:${SOCK};
+        fastcgi_param HTTPS on;
+    }
+    rewrite ^/instal/?$ /setup_db.php last;
+    rewrite ^/instal/([A-Za-z0-9_-]{20,80})/?$ /setup_db.php?setup_token=\$1 last;
+
+    # Alamat samar berbasis token
+    rewrite ^/sesi/([A-Za-z0-9]{6,12})/?$ /input-token.php?kode=\$1 last;
+    rewrite ^/masuk/?$ /index.php last;
+    rewrite ^/guru/?$ /login-guru.php last;
+    rewrite ^/siswa/?$ /login-siswa.php last;
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;

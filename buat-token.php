@@ -6,22 +6,42 @@ require 'koneksi.php';
 // Handle AJAX request to save token
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_token') {
     header('Content-Type: application/json');
-    $token = $_POST['token'] ?? '';
-    $kelas = $_POST['kelas'] ?? '';
-    $materi = $_POST['materi'] ?? '';
-    
+    padi_wajib_csrf();
+    $token = strtoupper(trim((string)($_POST['token'] ?? '')));
+    $kelas = mb_substr(trim((string)($_POST['kelas'] ?? '')), 0, 50);
+    $materi = mb_substr(trim((string)($_POST['materi'] ?? '')), 0, 100);
+
     if (!$conn) {
         echo json_encode(['success' => false, 'message' => 'Database tidak terhubung']);
         exit;
     }
-    
+    if ($kelas === '' || $materi === '') {
+        echo json_encode(['success' => false, 'message' => 'Kelas dan materi wajib dipilih']);
+        exit;
+    }
+
+    // Token pendek/custom tidak diterima: server membangkitkan 8 karakter acak.
+    if (!preg_match('/^[A-Z0-9]{6,12}$/', $token)) {
+        $token = padi_token_acak(8);
+    }
+    for ($i = 0; $i < 5; $i++) {
+        $cek = $conn->prepare("SELECT id FROM sesi WHERE token = ? LIMIT 1");
+        $cek->bind_param("s", $token);
+        $cek->execute();
+        $sudah = $cek->get_result()->num_rows > 0;
+        $cek->close();
+        if (!$sudah) break;
+        $token = padi_token_acak(8);
+    }
+
     $stmt = $conn->prepare("INSERT INTO sesi (token, kelas, materi) VALUES (?, ?, ?)");
     $stmt->bind_param("sss", $token, $kelas, $materi);
-    
+
     if ($stmt->execute()) {
-        echo json_encode(['success' => true]);
+        echo json_encode(['success' => true, 'token' => $token]);
     } else {
-        echo json_encode(['success' => false, 'message' => $conn->error]);
+        if (function_exists('error_log')) error_log('PADI: gagal menyimpan token - ' . $conn->error);
+        echo json_encode(['success' => false, 'message' => 'Token gagal disimpan. Coba lagi.']);
     }
     $stmt->close();
     exit;
@@ -664,6 +684,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
       <div class="token-code-box">
         <p class="token-code" id="token-display">VOLI-X1-482</p>
       </div>
+      <p class="token-link" id="token-link" style="display:none; font-size:12px; color:var(--text-3); text-align:center; word-break:break-all; margin-top:8px;"></p>
     </div>
 
     <div class="token-actions">
@@ -762,16 +783,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
   let currentToken = '';
 
   function generateToken() {
-    const customToken = document.getElementById('input-custom-token').value.trim();
-    if (customToken !== '') {
-      return customToken.toUpperCase();
+    const customToken = document.getElementById('input-custom-token').value.trim().toUpperCase();
+    // Token custom minimal 6 karakter; bila tidak valid, server membuat token acak.
+    if (/^[A-Z0-9]{6,12}$/.test(customToken)) {
+      return customToken;
     }
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let randomPart = '';
-    for(let i=0; i<4; i++){
-      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return randomPart;
+    const acak = new Uint32Array(8);
+    (window.crypto || window.msCrypto).getRandomValues(acak);
+    return Array.from(acak, n => chars[n % chars.length]).join('');
   }
 
   function buatToken() {
@@ -795,13 +815,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         action: 'save_token',
         token: currentToken,
         kelas: kelas,
-        materi: materi
+        materi: materi,
+        csrf: '<?= padi_csrf_token() ?>'
       })
     })
     .then(res => res.json())
     .then(data => {
       if(data.success) {
+        currentToken = data.token || currentToken;
         document.getElementById('token-display').textContent = currentToken;
+        const tautan = document.getElementById('token-link');
+        if (tautan) {
+          const basis = <?= json_encode(rtrim((string)(getenv('APP_URL') ?: ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost'))), '/'), JSON_UNESCAPED_SLASHES) ?>;
+          tautan.textContent = 'Tautan sesi: ' + basis + '/sesi/' + currentToken;
+          tautan.style.display = 'block';
+        }
 
         const resultEl = document.getElementById('token-result');
         resultEl.classList.add('visible');

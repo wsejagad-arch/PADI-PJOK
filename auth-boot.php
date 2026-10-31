@@ -8,3 +8,6 @@ require_once __DIR__ . '/auth.php';
 
 padi_berbagi_sesi();
 padi_mulai_sesi();
+
+// Pastikan skema auth (kolom password + akun guru awal) tersedia, sekali per sesi.
+padi_pastikan_skema_auth($conn);

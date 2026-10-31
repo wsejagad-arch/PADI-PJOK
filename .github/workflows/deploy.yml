@@ -63,11 +63,18 @@ jobs:
         if: steps.cek.outputs.siap == 'true'
         env:
           KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          # Host key di-pin dari secret (bukan ssh-keyscan) agar tidak bisa di-MITM.
+          if [ -z "$KNOWN_HOSTS" ]; then
+            echo "Secret DEPLOY_KNOWN_HOSTS belum diisi." >&2
+            exit 1
+          fi
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Deploy
         if: steps.cek.outputs.siap == 'true'
@@ -76,7 +83,7 @@ jobs:
           USER: ${{ secrets.DEPLOY_USER || 'root' }}
           PATH_APP: ${{ secrets.DEPLOY_PATH || '/var/www/padipjok' }}
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$USER@$HOST" bash -s <<'REMOTE'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$USER@$HOST" bash -s <<'REMOTE'
           set -e
           cd "${PATH_APP:-/var/www/padipjok}"
           git fetch --all --quiet

@@ -5,6 +5,13 @@ require_once 'auth.php';
 
 // Jika belum login ke sistem sama sekali, kembali ke index
 if (empty($_SESSION['master_id'])) {
+    // Simpan kode dari tautan /sesi/<TOKEN> agar dipakai setelah login.
+    $kode_tautan = preg_replace('/[^A-Za-z0-9]/', '', (string)($_GET['kode'] ?? ''));
+    if ($kode_tautan !== '') {
+        $_SESSION['kode_sesi_awal'] = $kode_tautan;
+        header('Location: login-siswa.php');
+        exit;
+    }
     header('Location: index.php');
     exit;
 }
@@ -16,15 +23,21 @@ if (!empty($_SESSION['siswa_id'])) {
 }
 
 $err = '';
+$kode_awal = preg_replace('/[^A-Za-z0-9]/', '', (string)($_GET['kode'] ?? ($_SESSION['kode_sesi_awal'] ?? '')));
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'join') {
-        $hasil = joinSesiSiswa($conn, $_POST['token'] ?? '');
-        if ($hasil['success']) {
-            header('Location: dashboard-siswa.php');
-            exit;
+        if (!padi_csrf_valid()) {
+            $err = 'Sesi formulir kedaluwarsa. Muat ulang halaman lalu coba lagi.';
+        } else {
+            $hasil = joinSesiSiswa($conn, $_POST['token'] ?? '');
+            if ($hasil['success']) {
+                unset($_SESSION['kode_sesi_awal']);
+                header('Location: dashboard-siswa.php');
+                exit;
+            }
+            $err = $hasil['message'];
         }
-        $err = $hasil['message'];
     }
 }
 ?>
@@ -216,9 +229,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <?php endif; ?>
 
   <form method="post">
+    <?= padi_csrf_field() ?>
     <input type="hidden" name="action" value="join"/>
     <div class="form-group">
-      <input type="text" class="form-input" name="token" placeholder="Masukkan Token..." required autocomplete="off" />
+      <input type="text" class="form-input" name="token" placeholder="Masukkan Token..." value="<?= htmlspecialchars($kode_awal) ?>" required autocomplete="off" />
     </div>
     <button type="submit" class="btn-submit">Masuk Sesi</button>
   </form>

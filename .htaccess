@@ -1,0 +1,37 @@
+# .htaccess — PADI-PJOK (Apache / XAMPP)
+# Tujuan: (1) berkas rahasia & berkas internal tidak bisa diunduh/dibuka,
+#         (2) halaman sensitif diakses lewat alamat samar + token.
+
+DirectoryIndex index.php index.html
+
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Berkas internal: tampil sebagai 404 bila dibuka langsung.
+    RewriteRule ^(auth|auth-boot|koneksi|pesan-db|setup_db|dashboard-guru-tmp)\.php$ - [R=404,L]
+
+    # Installer hanya lewat /instal/<TOKEN> (token dari PADI_SETUP_TOKEN di .env).
+    RewriteRule ^instal/?$ setup_db.php [END,QSA]
+    RewriteRule ^instal/([A-Za-z0-9_-]{20,80})/?$ setup_db.php?setup_token=$1 [END,QSA]
+
+    # Siswa bergabung lewat /sesi/<TOKEN> (token = kode sesi dari guru).
+    RewriteRule ^sesi/([A-Za-z0-9]{6,12})/?$ input-token.php?kode=$1 [END,QSA]
+
+    # Alias ramah tanpa nama berkas .php
+    RewriteRule ^masuk/?$ index.php [END,QSA]
+    RewriteRule ^guru/?$ login-guru.php [END,QSA]
+    RewriteRule ^siswa/?$ login-siswa.php [END,QSA]
+</IfModule>
+
+# Berkas rahasia / arsip / dokumentasi tidak boleh diunduh.
+<FilesMatch "\.(env|bak|sql|log|ini|sh|md|txt)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>

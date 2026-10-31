@@ -208,9 +208,10 @@ $cek_video->close();
   <!-- Video Praktik Siswa -->
   <div class="ringkasan-card anim" style="margin-bottom:14px; padding:16px;">
     <p class="section-title">Video Praktik Siswa</p>
-    <?php if (!empty($video_path)): ?>
+    <?php $embed_aman = padi_embed_aman($video_path ?? ''); ?>
+    <?php if ($embed_aman !== ''): ?>
       <div style="border-radius:10px; overflow:hidden; border:1px solid var(--border); height:220px; background:#000;">
-        <iframe src="<?= htmlspecialchars($video_path) ?>" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
+        <iframe src="<?= htmlspecialchars($embed_aman) ?>" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
       </div>
     <?php else: ?>
       <div style="background:var(--bg); border:1px dashed var(--border); border-radius:10px; padding:20px; text-align:center;">

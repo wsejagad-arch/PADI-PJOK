@@ -23,12 +23,12 @@ define('PADI_KONEKSI_SELESAI', true);
 if (!function_exists('padi_env_file')) {
 function padi_env_file()
 {
-    $kandidat = [__DIR__ . '/.env'];
+    $kandidat = [__DIR__ . '/.env', dirname(__DIR__) . '/.env'];
     $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
     $lokal = ($host === '' || strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false);
     if ($lokal) {
         $kandidat[] = __DIR__ . '/.env.local';
-        $kandidat[] = __DIR__ . '/.env';
+        $kandidat[] = dirname(__DIR__) . '/.env.local';
     }
     foreach ($kandidat as $berkas) {
         if (is_readable($berkas)) return $berkas;
@@ -110,7 +110,7 @@ if (!$conn_setup) {
 $conn = padi_coba_koneksi($host, $user, $pass, $db, $port);
 if (!$conn) {
     if ($padi_db_error === '') {
-        $padi_db_error = 'Database "' . $db . '" tidak dapat dibuka. Jalankan setup_db.php atau periksa kredensial .env.';
+        $padi_db_error = 'Database "' . $db . '" tidak dapat dibuka. Jalankan installer lewat /instal/<token> atau periksa kredensial .env.';
     }
 }
 

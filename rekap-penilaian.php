@@ -8,11 +8,14 @@ $avg_kog = 0; $avg_afe = 0; $avg_psi = 0;
 $count = 0;
 
 if ($conn) {
+    pastikanKolomVerifikasi($conn);
     $q = "
         SELECT s.id, s.nama, 
                IFNULL(k.nilai_total, 0) as kognitif,
-               IFNULL(a.nilai_rubrik, 0) as afektif,
-               IFNULL(p.nilai_rubrik, 0) as psikomotor
+               IFNULL(COALESCE(a.nilai_guru, a.nilai_rubrik), 0) as afektif,
+               IFNULL(COALESCE(p.nilai_guru, p.nilai_rubrik), 0) as psikomotor,
+               (a.nilai_guru IS NOT NULL) as afektif_guru,
+               (p.nilai_guru IS NOT NULL) as psikomotor_guru
         FROM siswa s
         LEFT JOIN penilaian_kognitif k ON s.id = k.siswa_id
         LEFT JOIN penilaian_afektif a ON s.id = a.siswa_id
@@ -210,6 +213,13 @@ function getGrade($val) {
     </div>
   </div>
 
+  <!-- Tombol verifikasi nilai guru -->
+  <div style="padding:0 16px 10px">
+    <a href="verifikasi-nilai.php" style="display:flex;align-items:center;justify-content:center;gap:6px;background:var(--blue);color:#fff;padding:12px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
+      Verifikasi / Koreksi Nilai Siswa
+    </a>
+  </div>
+
   <!-- Search -->
   <div class="search-row">
     <div class="search-input-wrap">
@@ -238,8 +248,8 @@ function getGrade($val) {
           <div class="student-name-row"><span class="s-name"><?= htmlspecialchars($s['nama']) ?></span><span class="badge-hadir">Hadir</span></div>
           <div class="scores-row">
             <div class="s-score-item"><span class="s-score-label">Kognitif</span><span class="s-score-val <?= $k_grade[1] ?>"><?= round($s['kognitif']) ?></span><span class="s-score-grade <?= $k_grade[1] ?>"><?= $k_grade[0] ?></span></div>
-            <div class="s-score-item"><span class="s-score-label">Afektif</span><span class="s-score-val <?= $a_grade[1] ?>"><?= round($s['afektif_100']) ?></span><span class="s-score-grade <?= $a_grade[1] ?>"><?= $a_grade[0] ?></span></div>
-            <div class="s-score-item"><span class="s-score-label">Psikomotor</span><span class="s-score-val <?= $p_grade[1] ?>"><?= round($s['psikomotor_100']) ?></span><span class="s-score-grade <?= $p_grade[1] ?>"><?= $p_grade[0] ?></span></div>
+            <div class="s-score-item"><span class="s-score-label">Afektif<?= !empty($s['afektif_guru']) ? ' ✓' : '' ?></span><span class="s-score-val <?= $a_grade[1] ?>"><?= round($s['afektif_100']) ?></span><span class="s-score-grade <?= $a_grade[1] ?>"><?= $a_grade[0] ?></span></div>
+            <div class="s-score-item"><span class="s-score-label">Psikomotor<?= !empty($s['psikomotor_guru']) ? ' ✓' : '' ?></span><span class="s-score-val <?= $p_grade[1] ?>"><?= round($s['psikomotor_100']) ?></span><span class="s-score-grade <?= $p_grade[1] ?>"><?= $p_grade[0] ?></span></div>
           </div>
         </div>
         <span class="card-arrow"><svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>

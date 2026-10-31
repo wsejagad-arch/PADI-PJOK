@@ -8,11 +8,22 @@ $siswa_id = $_SESSION['siswa_id'] ?? 0;
 // Handle Save Video Link
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_video_link') {
     header('Content-Type: application/json');
+    padi_wajib_csrf();
     $link = trim($_POST['link'] ?? '');
     
     // Konversi YouTube URL ke versi Embed
     if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i', $link, $matches)) {
         $link = 'https://www.youtube.com/embed/' . $matches[1];
+    }
+
+    // Hanya https dari host yang diizinkan (cegah javascript:/data: di <iframe>).
+    $link = padi_embed_aman($link);
+    if ($link === '') {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Tautan tidak valid. Gunakan tautan YouTube atau Google Drive (https).'
+        ]);
+        exit;
     }
     
     $cek = $conn->prepare("SELECT id FROM penilaian_psikomotor WHERE siswa_id = ?");
@@ -463,7 +474,8 @@ $cek_video->close();
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         action: 'save_video_link',
-        link: link
+        link: link,
+        csrf: '<?= padi_csrf_token() ?>'
       })
     })
     .then(r => r.json())
@@ -472,7 +484,7 @@ $cek_video->close();
         showToast('✅ Video berhasil ditautkan!');
         setTimeout(() => location.reload(), 1000);
       } else {
-        showToast('❌ Gagal menyimpan tautan video.');
+        showToast('❌ ' + (data.message || 'Gagal menyimpan tautan video.'));
         btn.disabled = false;
         btn.textContent = 'Simpan';
       }

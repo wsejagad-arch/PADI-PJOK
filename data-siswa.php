@@ -5,6 +5,10 @@ require 'koneksi.php';
 
 // --- HANDLE POST REQUESTS ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if (!padi_csrf_valid()) {
+        http_response_code(403);
+        exit('Sesi formulir kedaluwarsa. Muat ulang halaman lalu coba lagi.');
+    }
     $action = $_POST['action'];
     
     // 1. Tambah Siswa
@@ -35,33 +39,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header("Location: data-siswa.php?kelas=" . urlencode($nama_kelas));
         exit;
     }
-}
 
-// --- HANDLE GET (DELETE) ---
-if (isset($_GET['action'])) {
-    // 1. Delete Siswa
-    if ($_GET['action'] === 'delete_siswa' && isset($_GET['id'])) {
-        $id = (int)$_GET['id'];
-        $kelas = $_GET['kelas'] ?? '';
-        $conn->query("DELETE FROM master_siswa WHERE id = $id");
+    // 3. Hapus Siswa
+    if ($action === 'delete_siswa' && isset($_POST['id'])) {
+        $id = (int)$_POST['id'];
+        $kelas = (string)($_POST['kelas'] ?? '');
+        $stmt = $conn->prepare("DELETE FROM master_siswa WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $stmt->close();
         header("Location: data-siswa.php?kelas=" . urlencode($kelas));
         exit;
     }
-    
-    // 2. Delete Kelas
-    if ($_GET['action'] === 'delete_kelas' && isset($_GET['kelas'])) {
-        $kelas = $_GET['kelas'];
+
+    // 4. Hapus Kelas (beserta siswanya)
+    if ($action === 'delete_kelas' && isset($_POST['kelas'])) {
+        $kelas = (string)$_POST['kelas'];
         $stmt = $conn->prepare("DELETE FROM master_kelas WHERE nama_kelas = ?");
         $stmt->bind_param("s", $kelas);
         $stmt->execute();
         $stmt->close();
-        
-        // Delete all students in that class
+
         $stmt = $conn->prepare("DELETE FROM master_siswa WHERE kelas = ?");
         $stmt->bind_param("s", $kelas);
         $stmt->execute();
         $stmt->close();
-        
+
         header("Location: data-siswa.php");
         exit;
     }
@@ -162,7 +165,7 @@ if ($active_kelas) {
     /* Class Header (with Delete button) */
     .class-header { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 4px; }
     .class-title { font-size: 15px; font-weight: 700; color: var(--text); }
-    .btn-delete-class { font-size: 11px; font-weight: 600; color: var(--red); background: var(--red-light); padding: 6px 10px; border-radius: 6px; text-decoration: none; display: flex; align-items: center; gap: 4px; border: 1px solid #FECACA; }
+    .btn-delete-class { font-family: inherit; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--red); background: var(--red-light); padding: 6px 10px; border-radius: 6px; text-decoration: none; display: flex; align-items: center; gap: 4px; border: 1px solid #FECACA; }
     
     /* Student List */
     .student-list { display: flex; flex-direction: column; gap: 10px; }
@@ -235,10 +238,15 @@ if ($active_kelas) {
     <?php if ($active_kelas): ?>
     <div class="class-header">
       <span class="class-title">Siswa Kelas <?= htmlspecialchars($active_kelas) ?></span>
-      <a href="data-siswa.php?action=delete_kelas&kelas=<?= urlencode($active_kelas) ?>" class="btn-delete-class" onclick="return confirm('Hapus kelas <?= htmlspecialchars($active_kelas) ?> beserta seluruh siswanya?');">
+      <form method="POST" action="data-siswa.php" style="display:inline" onsubmit="return confirm('Hapus kelas <?= htmlspecialchars($active_kelas, ENT_QUOTES) ?> beserta seluruh siswanya?');">
+        <?= padi_csrf_field() ?>
+        <input type="hidden" name="action" value="delete_kelas"/>
+        <input type="hidden" name="kelas" value="<?= htmlspecialchars($active_kelas, ENT_QUOTES) ?>"/>
+        <button type="submit" class="btn-delete-class">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
         Hapus Kelas
-      </a>
+        </button>
+      </form>
     </div>
 
     <!-- Add Form -->
@@ -248,6 +256,7 @@ if ($active_kelas) {
         Tambah Siswa Satuan
       </div>
       <form method="POST" action="data-siswa.php">
+        <?= padi_csrf_field() ?>
         <input type="hidden" name="action" value="add_siswa"/>
         <input type="hidden" name="kelas" value="<?= htmlspecialchars($active_kelas) ?>"/>
         
@@ -275,9 +284,15 @@ if ($active_kelas) {
                 <div class="student-nis">NIS: <?= htmlspecialchars($siswa['nis'] ?: '-') ?></div>
               </div>
             </div>
-            <a href="data-siswa.php?action=delete_siswa&id=<?= $siswa['id'] ?>&kelas=<?= urlencode($active_kelas) ?>" class="btn-delete" onclick="return confirm('Hapus <?= htmlspecialchars($siswa['nama']) ?> dari kelas ini?');">
+            <form method="POST" action="data-siswa.php" style="display:inline" onsubmit="return confirm('Hapus <?= htmlspecialchars($siswa['nama'], ENT_QUOTES) ?> dari kelas ini?');">
+              <?= padi_csrf_field() ?>
+              <input type="hidden" name="action" value="delete_siswa"/>
+              <input type="hidden" name="id" value="<?= (int)$siswa['id'] ?>"/>
+              <input type="hidden" name="kelas" value="<?= htmlspecialchars($active_kelas, ENT_QUOTES) ?>"/>
+              <button type="submit" class="btn-delete">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
-            </a>
+              </button>
+            </form>
           </div>
         <?php endforeach; ?>
       <?php else: ?>
@@ -304,6 +319,7 @@ if ($active_kelas) {
       <h3>Tambah Kelas Baru</h3>
       <p>Masukkan nama kelas (misal: X-1, XI-IPA-2)</p>
       <form method="POST" action="data-siswa.php">
+        <?= padi_csrf_field() ?>
         <input type="hidden" name="action" value="add_kelas"/>
         <div class="form-group">
           <input type="text" name="nama_kelas" class="form-input" placeholder="Nama Kelas" required/>

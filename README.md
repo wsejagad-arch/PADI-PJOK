@@ -25,7 +25,9 @@ Live: <https://padipjok.pintarhub.com>
 
 1. Letakkan folder ini di `C:\xampp\htdocs\PADI`
 2. Nyalakan Apache + MySQL dari XAMPP Control Panel
-3. Buka <http://localhost/PADI/setup_db.php> → membuat database `padi_pjok` + tabel
+3. Isi `PADI_SETUP_TOKEN` (min. 20 karakter) di `.env`, lalu buka
+   <http://localhost/PADI/instal/TOKEN> → membuat database `padi_pjok` + tabel.
+   Alternatif tanpa web: `php setup_db.php` dari terminal (mode CLI).
 4. Buka <http://localhost/PADI/>
 
 Tanpa `.env`, koneksi otomatis memakai default XAMPP (`root`, tanpa password).
@@ -72,11 +74,20 @@ APP_ENV=production
 
 `.env` **tidak** ikut ter-commit (lihat `.gitignore`).
 
-## Akun bawaan
+## Akun guru pertama
 
-| Peran | Username | Password | Catatan |
-|---|---|---|---|
-| Guru | `guru` | `guru123` | **WAJIB diganti setelah login pertama** |
+Tidak ada password default di kode. Saat tabel `guru` masih kosong, aplikasi membuat
+akun `guru` dengan password acak dan menuliskannya **sekali** ke
+`.padi-guru-password.txt` di folder aplikasi (nama berawalan titik + `.txt`, sudah
+diblokir `.htaccess`/Nginx), serta mencatat lokasinya di `error_log`.
+
+Cara lain (disarankan): set `GURU_SEED_PASS` di `.env` sebelum akses pertama.
+
+```env
+GURU_SEED_PASS=password-kuat-anda
+```
+
+Setelah login, ganti password lalu hapus berkas `padi-guru-password.txt`.
 
 ## Struktur berkas
 
@@ -91,20 +102,25 @@ input-token.php        # siswa gabung sesi via token
 pantau-siswa.php       # monitoring siswa aktif
 penilaian-*.php        # form penilaian (kognitif/afektif/psikomotor/rekan)
 rekap-penilaian*.php   # rekap nilai
+verifikasi-nilai.php   # guru memverifikasi/mengoreksi nilai rubrik siswa
 perkembangan-semester.php
 laporan.php            # laporan & cetak
 koneksi.php            # koneksi DB (baca .env)
 auth.php               # helper autentikasi + migrasi tabel
-setup_db.php           # pembuat skema database
+setup_db.php           # pembuat skema database (akses via /instal/<TOKEN>)
+perbaikan-keamanan-ct102.sh  # patch .env + nginx + token tunnel di server
 deploy.sh              # skrip deploy otomatis (Proxmox/Debian)
 ```
 
 ## Keamanan
 
 - Kredensial DB **hanya** di `.env` / environment variable (bukan di kode).
-- Nginx memblokir akses ke `.env`, `.git`, `*.sql`, `*.bak`, `*.log`, `*.sh`.
-- Password disimpan sebagai hash (`password_hash`).
-- Selalu ubah password guru bawaan & gunakan password DB yang kuat di produksi.
+- `.htaccess` (Apache) dan Nginx memblokir `.env`, dotfile, `.git`, `*.sql`, `*.bak`, `*.log`, `*.sh`, `*.md`, `*.txt`.
+- Berkas internal (`auth.php`, `koneksi.php`, `pesan-db.php`, `setup_db.php`, …) → 404 bila dibuka langsung.
+- Alamat samar: `/instal/<token>` (installer), `/sesi/<token>` (siswa gabung), `/masuk`, `/guru`, `/siswa`.
+- Password disimpan sebagai hash (`password_hash`); tidak ada password default di kode.
+- Nilai rubrik siswa tidak dipakai langsung: guru memverifikasi di `verifikasi-nilai.php`, dan rekap memakai `COALESCE(nilai_guru, nilai_rubrik)`.
+- Login/token dibatasi percobaan (throttle) dan formulir memakai token CSRF.
 
 ## Lisensi
 

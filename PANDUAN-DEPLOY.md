@@ -64,9 +64,35 @@ https://padipjok.pintarhub.com
 
 ## Langkah 5 — Amankan aplikasi
 
-1. Login guru: user `guru`, password `guru123`
-2. **Segera ganti password** guru bawaan
+1. Login guru: user `guru`, password dari `GURU_SEED_PASS` di `.env` (atau baca `.padi-guru-password.txt` di folder aplikasi bila `GURU_SEED_PASS` tidak diisi)
+2. **Segera ganti password** guru
 3. Buat kelas & siswa lewat menu Data Siswa
+
+## Langkah 6 — Patch keamanan di server (sekali)
+
+`deploy.sh` sudah memuat aturan nginx baru. Bila server sudah berjalan dan tidak
+ingin deploy ulang penuh, cukup jalankan patch berikut **di dalam CT 102**:
+
+```bash
+cd /var/www/padipjok && git pull
+bash perbaikan-keamanan-ct102.sh
+```
+
+Skrip itu: mengisi `PADI_SETUP_TOKEN`/`GURU_SEED_PASS` di `.env`, menyisipkan
+aturan nginx (blokir `.env`/`*.txt`/berkas internal, alamat `/instal/<token>`
+dan `/sesi/<token>`), reload nginx, lalu memverifikasi 6 URL.
+
+### Bila token Cloudflare Tunnel bocor / perlu diganti
+
+1. Dashboard Cloudflare → Zero Trust → Networks → Tunnels → `padi-pjok` → **Refresh token**.
+2. Salin token baru, lalu di CT 102:
+   ```bash
+   bash perbaikan-keamanan-ct102.sh --cf-token=<TOKEN_BARU>
+   ```
+3. Pastikan `systemctl is-active cloudflared` = `active` dan situs kembali 200.
+
+Token lama tetap ada di riwayat git publik sampai riwayat ditulis ulang;
+mengganti token adalah langkah wajib, rewrite riwayat bersifat opsional.
 
 ---
 

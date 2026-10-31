@@ -30,10 +30,9 @@ function padi_halaman_db_mati($pesan)
         . '<ul>'
         . '<li>Pastikan layanan <strong>MySQL/MariaDB</strong> sudah berjalan di server.</li>'
         . '<li>Periksa <strong>DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS</strong> pada berkas <code>.env</code>.</li>'
-        . '<li>Bila database baru dibuat, jalankan <code>setup_db.php</code> sekali.</li>'
+        . '<li>Bila database baru dibuat, minta admin menjalankan installer lewat alamat samar <code>/instal/&lt;token&gt;</code>.</li>'
         . '</ul>'
-        . '<a class="tombol" href="setup_db.php">Coba perbaiki sekarang</a>'
-        . '<a class="tautan" href="index.php">Kembali ke halaman utama</a>'
+        . '<a class="tombol" href="index.php">Kembali ke halaman utama</a>'
         . '</div></body></html>';
     exit;
 }

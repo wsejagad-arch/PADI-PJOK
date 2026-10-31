@@ -5,9 +5,11 @@ wajibLoginSiswa();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_psikomotor') {
     require 'koneksi.php';
     header('Content-Type: application/json');
-    $nilai = intval($_POST['nilai'] ?? 0);
-    $analisis = $_POST['analisis'] ?? '';
-    $siswa_id = $_SESSION['siswa_id'];
+    padi_wajib_csrf();
+    // Rubrik: 5 indikator x skala 1-4 → nilai sah 0..20 (0 = belum diisi).
+    $nilai = max(0, min(20, intval($_POST['nilai'] ?? 0)));
+    $analisis = mb_substr(trim((string)($_POST['analisis'] ?? '')), 0, 300);
+    $siswa_id = (int)$_SESSION['siswa_id'];
     
     $stmt = $conn->prepare("SELECT id FROM penilaian_psikomotor WHERE siswa_id = ?");
     $stmt->bind_param("i", $siswa_id);
@@ -404,7 +406,8 @@ Saya akan latihan lebih fokus pada posisi tubuh dan kekuatan dorongan dari kaki.
       body: new URLSearchParams({
         action: 'save_psikomotor',
         nilai: nilai,
-        analisis: analisis
+        analisis: analisis,
+        csrf: '<?= padi_csrf_token() ?>'
       })
     }).then(r=>r.json()).then(data=>{
       if(data.success){

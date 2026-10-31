@@ -1,7 +1,30 @@
 <?php
-// setup_db.php
+// setup_db.php — installer sekali pakai.
+// Akses hanya lewat CLI, atau lewat alamat samar /instal/<TOKEN>
+// dengan TOKEN = PADI_SETUP_TOKEN di .env (min. 20 karakter).
 require 'koneksi.php';
 
+$cli = (PHP_SAPI === 'cli');
+$token_env = trim((string)(getenv('PADI_SETUP_TOKEN') ?: getenv('PADI_SETUP_KEY')));
+$token_input = (string)($_GET['setup_token'] ?? ($_POST['setup_token'] ?? ''));
+
+if (!$cli) {
+    if (strlen($token_env) < 20) {
+        http_response_code(403);
+        exit('Installer nonaktif. Isi PADI_SETUP_TOKEN (min. 20 karakter) di .env, lalu buka /instal/TOKEN.');
+    }
+    if (!hash_equals($token_env, $token_input)) {
+        http_response_code(404);
+        exit('Halaman tidak ditemukan.');
+    }
+}
+
+if (!$conn_setup || !empty($conn_setup->connect_error)) {
+    http_response_code(503);
+    exit('Server database tidak dapat dihubungi. Periksa DB_HOST/DB_PORT/DB_USER/DB_PASS di .env.');
+}
+
+header('Content-Type: text/html; charset=utf-8');
 echo "Memulai setup database...<br/>\n";
 
 // 1. Buat Database
@@ -9,7 +32,8 @@ $sql_db = "CREATE DATABASE IF NOT EXISTS padi_pjok CHARACTER SET utf8mb4 COLLATE
 if ($conn_setup->query($sql_db) === TRUE) {
     echo "✅ Database 'padi_pjok' berhasil dipastikan ada.<br/>\n";
 } else {
-    die("❌ Gagal membuat database: " . $conn_setup->error);
+    error_log('PADI setup: gagal membuat database - ' . $conn_setup->error);
+    die("❌ Gagal membuat database. Detail sudah dicatat di log server.<br/>\n");
 }
 
 // Gunakan database tersebut
@@ -118,7 +142,8 @@ foreach ($tables as $name => $sql) {
     if ($conn_setup->query($sql) === TRUE) {
         echo "✅ Tabel '$name' siap.<br/>\n";
     } else {
-        echo "❌ Gagal membuat tabel '$name': " . $conn_setup->error . "<br/>\n";
+        error_log("PADI setup: gagal membuat tabel '$name' - " . $conn_setup->error);
+        echo "❌ Gagal membuat tabel '$name'. Detail sudah dicatat di log server.<br/>\n";
     }
 }
 

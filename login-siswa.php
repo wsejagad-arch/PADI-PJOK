@@ -15,6 +15,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Pastikan kolom password & akun guru tersedia (sekali per sesi).
+padi_pastikan_skema_auth($conn);
+
 $err = '';
 $show_token = false;
 $token_sesi = '';
@@ -26,7 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'login') {
         $hasil = loginSiswa($conn, $_POST['dokumen'] ?? '', $_POST['password'] ?? '');
         if ($hasil['success']) {
-            $_SESSION['token_sesi'] = $hasil['token'];
+            $_SESSION['token_sesi'] = $hasil['token'] ?? '';
+            if (!empty($_SESSION['kode_sesi_awal'])) {
+                padi_kembali('input-token.php?kode=' . urlencode((string)$_SESSION['kode_sesi_awal']));
+            }
             padi_kembali('login-siswa.php?token=1');
         }
         $err = $hasil['message'];

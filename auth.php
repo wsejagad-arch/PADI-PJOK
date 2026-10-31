@@ -75,6 +75,145 @@ function padi_kembali($lokasi, $pesan = '')
 }
 
 /* ============================================================
+   PROTEKSI UMUM: CSRF, throttle, token, URL embed
+   ============================================================ */
+if (!function_exists('padi_csrf_token')) {
+function padi_csrf_token()
+{
+    padi_mulai_sesi();
+    if (empty($_SESSION['padi_csrf'])) {
+        $_SESSION['padi_csrf'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['padi_csrf'];
+}
+}
+
+if (!function_exists('padi_csrf_field')) {
+function padi_csrf_field()
+{
+    return '<input type="hidden" name="csrf" value="'
+        . htmlspecialchars(padi_csrf_token(), ENT_QUOTES, 'UTF-8') . '">';
+}
+}
+
+if (!function_exists('padi_csrf_valid')) {
+function padi_csrf_valid($token = null)
+{
+    padi_mulai_sesi();
+    if ($token === null) {
+        $token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+    }
+    if (!is_string($token) || $token === '' || empty($_SESSION['padi_csrf'])) {
+        return false;
+    }
+    return hash_equals((string)$_SESSION['padi_csrf'], $token);
+}
+}
+
+/** Hentikan permintaan (403 JSON) bila token CSRF tidak cocok. */
+if (!function_exists('padi_wajib_csrf')) {
+function padi_wajib_csrf()
+{
+    if (padi_csrf_valid()) return;
+    http_response_code(403);
+    if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['success' => false, 'message' => 'Sesi formulir kedaluwarsa. Muat ulang halaman.']);
+    exit;
+}
+}
+
+/**
+ * Sisa detik blokir percobaan (0 = masih diizinkan). Ringan: hanya $_SESSION.
+ * Catatan: penyerang bisa menghapus cookie, jadi ini pelengkap token acak,
+ * bukan satu-satunya pertahanan.
+ */
+if (!function_exists('padi_throttle')) {
+function padi_throttle($kunci, $maks = 5, $jeda = 600)
+{
+    padi_mulai_sesi();
+    $data = $_SESSION['padi_throttle'][$kunci] ?? ['n' => 0, 'sampai' => 0];
+    $data = ['n' => (int)($data['n'] ?? 0), 'sampai' => (int)($data['sampai'] ?? 0)];
+    $sisa = $data['sampai'] - time();
+    if ($sisa > 0) return $sisa;
+    if ((int)$data['sampai'] !== 0) {
+        $_SESSION['padi_throttle'][$kunci] = ['n' => 0, 'sampai' => 0];
+        $data = $_SESSION['padi_throttle'][$kunci];
+    }
+    if ((int)$data['n'] >= $maks) {
+        $_SESSION['padi_throttle'][$kunci]['sampai'] = time() + $jeda;
+        return $jeda;
+    }
+    return 0;
+}
+}
+
+if (!function_exists('padi_throttle_gagal')) {
+function padi_throttle_gagal($kunci)
+{
+    padi_mulai_sesi();
+    $data = $_SESSION['padi_throttle'][$kunci] ?? ['n' => 0, 'sampai' => 0];
+    $_SESSION['padi_throttle'][$kunci] = [
+        'n' => (int)($data['n'] ?? 0) + 1,
+        'sampai' => (int)($data['sampai'] ?? 0),
+    ];
+}
+}
+
+if (!function_exists('padi_throttle_reset')) {
+function padi_throttle_reset($kunci)
+{
+    padi_mulai_sesi();
+    unset($_SESSION['padi_throttle'][$kunci]);
+}
+}
+
+/** Kunci throttle berbasis IP + tujuan (tanpa tabel/berkas tambahan). */
+if (!function_exists('padi_kunci_ip')) {
+function padi_kunci_ip($tujuan)
+{
+    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'lokal');
+    return $tujuan . ':' . $ip;
+}
+}
+
+/** Pesan tunggu yang ramah dari sisa detik blokir. */
+if (!function_exists('padi_pesan_throttle')) {
+function padi_pesan_throttle($detik)
+{
+    $menit = max(1, (int)ceil($detik / 60));
+    return 'Terlalu banyak percobaan. Coba lagi dalam ' . $menit . ' menit.';
+}
+}
+
+/** Token sesi acak 8 karakter A-Z0-9 (~41 bit) memakai random_int. */
+if (!function_exists('padi_token_acak')) {
+function padi_token_acak($panjang = 8)
+{
+    $alfabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    $hasil = '';
+    for ($i = 0; $i < $panjang; $i++) {
+        $hasil .= $alfabet[random_int(0, 35)];
+    }
+    return $hasil;
+}
+}
+
+/** URL yang aman untuk <iframe>: hanya https dari host yang diizinkan. */
+if (!function_exists('padi_embed_aman')) {
+function padi_embed_aman($url)
+{
+    $url = trim((string)$url);
+    if ($url === '' || strlen($url) > 500) return '';
+    $bagian = parse_url($url);
+    if (!$bagian || strtolower((string)($bagian['scheme'] ?? '')) !== 'https' || empty($bagian['host'])) {
+        return '';
+    }
+    $izin = ['www.youtube.com', 'youtube.com', 'youtu.be', 'www.youtube-nocookie.com', 'drive.google.com', 'docs.google.com'];
+    return in_array(strtolower($bagian['host']), $izin, true) ? $url : '';
+}
+}
+
+/* ============================================================
    MIGRASI RINGAN (aman dijalankan berulang)
    - master_siswa: tambah kolom password (hash)
    - tabel guru: akun guru (username + password hash)
@@ -98,19 +237,159 @@ function pastikanTabelAuth($conn)
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // 3. Akun guru bawaan (hanya bila tabel masih kosong)
-    $cek = $conn->query("SELECT COUNT(*) AS c FROM guru");
-    if ($cek && ($r = $cek->fetch_assoc()) && (int)$r['c'] === 0) {
-        $nama = 'Guru PJOK';
-        $user = 'guru';
-        $hash = password_hash('guru123', PASSWORD_DEFAULT);
+    // 3. Akun guru bawaan: password TIDAK di-hardcode.
+    //    Sumber: env GURU_SEED_PASS. Bila kosong, dibangkitkan acak dan
+    //    dicatat SEKALI ke berkas di luar document root.
+    $cek = $conn->query("SELECT id, username, password FROM guru ORDER BY id ASC LIMIT 1");
+    $akun = $cek ? $cek->fetch_assoc() : null;
+    if (!$akun) {
+        $pass = trim((string)getenv('GURU_SEED_PASS'));
+        $acak = ($pass === '');
+        if ($acak) $pass = bin2hex(random_bytes(6));
+        $hash = password_hash($pass, PASSWORD_DEFAULT);
         $stmt = $conn->prepare("INSERT INTO guru (nama, username, password) VALUES (?, ?, ?)");
         if ($stmt) {
+            $nama = 'Guru PJOK';
+            $user = 'guru';
             $stmt->bind_param("sss", $nama, $user, $hash);
             $stmt->execute();
             $stmt->close();
         }
+        if ($acak) padi_catat_password_guru($pass);
+    } elseif (strtolower((string)$akun['username']) === 'guru'
+        && password_verify('guru123', (string)$akun['password'])) {
+        // Rotasi akun default lama agar kredensial publik tidak berlaku lagi.
+        $pass = trim((string)getenv('GURU_SEED_PASS'));
+        $acak = ($pass === '');
+        if ($acak) $pass = bin2hex(random_bytes(6));
+        $hash = password_hash($pass, PASSWORD_DEFAULT);
+        $id = (int)$akun['id'];
+        $stmt = $conn->prepare("UPDATE guru SET password = ? WHERE id = ?");
+        if ($stmt) {
+            $stmt->bind_param("si", $hash, $id);
+            $stmt->execute();
+            $stmt->close();
+        }
+        if ($acak) padi_catat_password_guru($pass);
     }
+}
+
+/** Catat password guru hasil pembangkitan ke berkas tersembunyi di docroot. */
+if (!function_exists('padi_catat_password_guru')) {
+function padi_catat_password_guru($pass)
+{
+    // Nama berawalan titik + .txt → diblokir Apache (.htaccess) dan Nginx.
+    $berkas = __DIR__ . DIRECTORY_SEPARATOR . '.padi-guru-password.txt';
+    $isi = "Akun guru : guru\nPassword   : " . $pass . "\nDibuat     : " . date('c')
+        . "\n\nUbah password setelah login, lalu hapus berkas ini.\n";
+    @file_put_contents($berkas, $isi);
+    if (function_exists('error_log')) {
+        error_log('PADI: password guru dibuat/dirotasi. Lihat ' . $berkas);
+    }
+}
+}
+
+/** Cek keberadaan kolom tanpa mengubah skema. */
+if (!function_exists('padi_kolom_ada')) {
+function padi_kolom_ada($conn, $tabel, $kolom)
+{
+    if (!$conn) return false;
+    $tabel = preg_replace('/[^A-Za-z0-9_]/', '', (string)$tabel);
+    $stmt = $conn->prepare("SHOW COLUMNS FROM `" . $tabel . "` LIKE ?");
+    if (!$stmt) return false;
+    $stmt->bind_param("s", $kolom);
+    $stmt->execute();
+    $ada = $stmt->get_result()->num_rows > 0;
+    $stmt->close();
+    return $ada;
+}
+}
+
+/**
+ * Kolom verifikasi guru untuk nilai rubrik siswa (idempoten, sekali per request).
+ * nilai_rubrik tetap = isian siswa; nilai_guru = keputusan guru (dipakai rekap).
+ */
+if (!function_exists('pastikanKolomVerifikasi')) {
+function pastikanKolomVerifikasi($conn)
+{
+    static $selesai = false;
+    if ($selesai || !$conn) return;
+    $selesai = true;
+
+    $kolom_baru = [
+        'nilai_guru'   => 'TINYINT NULL DEFAULT NULL',
+        'catatan_guru' => 'VARCHAR(300) NULL DEFAULT NULL',
+        'guru_id'      => 'INT NULL DEFAULT NULL',
+        'dinilai_at'   => 'DATETIME NULL DEFAULT NULL',
+    ];
+    foreach (['penilaian_psikomotor', 'penilaian_afektif', 'penilaian_rekan'] as $tabel) {
+        foreach ($kolom_baru as $nama => $tipe) {
+            if (!padi_kolom_ada($conn, $tabel, $nama)) {
+                $conn->query("ALTER TABLE `$tabel` ADD COLUMN `$nama` $tipe");
+            }
+        }
+    }
+}
+}
+
+/**
+ * Simpan/koreksi nilai guru untuk satu siswa. Input kosong = cabut verifikasi.
+ * Tabel/kolom dibatasi daftar putih agar tidak bisa diarahkan ke tabel lain.
+ */
+if (!function_exists('padi_simpan_nilai_guru')) {
+function padi_simpan_nilai_guru($conn, $tabel, $kolom_pemilik, $siswa_id, $input, $catatan, $guru_id)
+{
+    $izin = [
+        'penilaian_afektif'    => 'siswa_id',
+        'penilaian_psikomotor' => 'siswa_id',
+        'penilaian_rekan'      => 'penilai_id',
+    ];
+    if (!$conn || !isset($izin[$tabel]) || $izin[$tabel] !== $kolom_pemilik) return;
+
+    $input = trim((string)$input);
+    $nilai = ($input === '') ? null : max(0, min(20, (int)$input));
+    $catatan = $nilai === null ? null : mb_substr(trim((string)$catatan), 0, 300);
+
+    $cek = $conn->prepare("SELECT id FROM `$tabel` WHERE `$kolom_pemilik` = ? LIMIT 1");
+    $cek->bind_param("i", $siswa_id);
+    $cek->execute();
+    $baris = $cek->get_result()->fetch_assoc();
+    $cek->close();
+
+    if ($baris) {
+        $id = (int)$baris['id'];
+        if ($nilai === null) {
+            $upd = $conn->prepare("UPDATE `$tabel` SET nilai_guru = NULL, catatan_guru = NULL, guru_id = NULL, dinilai_at = NULL WHERE id = ?");
+            $upd->bind_param("i", $id);
+        } else {
+            $upd = $conn->prepare("UPDATE `$tabel` SET nilai_guru = ?, catatan_guru = ?, guru_id = ?, dinilai_at = NOW() WHERE id = ?");
+            $upd->bind_param("isii", $nilai, $catatan, $guru_id, $id);
+        }
+        $upd->execute();
+        $upd->close();
+        return;
+    }
+
+    if ($nilai === null) return; // belum ada baris & tanpa nilai → tidak perlu dibuat
+
+    $ins = $conn->prepare("INSERT INTO `$tabel` (`$kolom_pemilik`, nilai_guru, catatan_guru, guru_id, dinilai_at)
+                           VALUES (?, ?, ?, ?, NOW())");
+    $ins->bind_param("iisi", $siswa_id, $nilai, $catatan, $guru_id);
+    $ins->execute();
+    $ins->close();
+}
+}
+
+/** Jalankan migrasi auth sekali per sesi (bukan tiap request). */
+if (!function_exists('padi_pastikan_skema_auth')) {
+function padi_pastikan_skema_auth($conn)
+{
+    if (!$conn) return;
+    padi_mulai_sesi();
+    if (!empty($_SESSION['padi_skema_auth'])) return;
+    pastikanTabelAuth($conn);
+    $_SESSION['padi_skema_auth'] = 1;
+}
 }
 
 /* ============================================================
@@ -165,8 +444,8 @@ function pastikanSiswaSesi($conn, $nama, $sesi_id)
 
 /**
  * Login siswa: Nomor Induk + password.
- * Bila siswa belum punya password, gunakan Nomor Induk (NIS) sebagai default awal
- * dan simpan sebagai hash agar aman.
+ * Bila siswa belum punya password, password pertama = token sesi aktif kelas
+ * (diterbitkan guru) lalu disimpan sebagai hash.
  *
  * @return array ['success'=>bool,'message'=>string]
  */
@@ -186,6 +465,13 @@ function loginSiswa($conn, $nis, $password)
     $password_in = trim((string)$password);
     if ($password_in === '') {
         $hasil['message'] = 'Password wajib diisi.';
+        return $hasil;
+    }
+
+    $kunci_throttle = padi_kunci_ip('login-siswa');
+    $tunggu = padi_throttle($kunci_throttle);
+    if ($tunggu > 0) {
+        $hasil['message'] = padi_pesan_throttle($tunggu);
         return $hasil;
     }
 
@@ -214,9 +500,11 @@ function loginSiswa($conn, $nis, $password)
         $terverifikasi = true;
     }
 
-    // Bootstrap: password pertama kali = NIS
+    // Bootstrap: password pertama = token sesi aktif kelas (diterbitkan guru).
+    // Tidak ada lagi password default (NIS/123456) yang bisa ditebak.
     if (!$terverifikasi && $hash === '') {
-        if (strcasecmp($password_in, $nis_bersih) === 0 || strcasecmp($password_in, '123456') === 0) {
+        $sesi_aktif = ambilSesiAktifKelas($conn, $kelas);
+        if ($sesi_aktif && strcasecmp($password_in, (string)$sesi_aktif['token']) === 0) {
             $terverifikasi = true;
             $baru = password_hash($password_in, PASSWORD_DEFAULT);
             $upd = $conn->prepare("UPDATE master_siswa SET password = ? WHERE id = ?");
@@ -227,9 +515,11 @@ function loginSiswa($conn, $nis, $password)
     }
 
     if (!$terverifikasi) {
-        $hasil['message'] = 'Password salah. (Jika baru pertama login, gunakan NIS Anda sebagai password).';
+        padi_throttle_gagal($kunci_throttle);
+        $hasil['message'] = 'Password salah. Jika baru pertama login, gunakan token materi dari guru PJOK.';
         return $hasil;
     }
+    padi_throttle_reset($kunci_throttle);
 
     // Bersihkan sesi lalu isi ulang
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -241,6 +531,9 @@ function loginSiswa($conn, $nis, $password)
     $_SESSION['siswa_nama'] = $nama;
     $_SESSION['siswa_nis']  = $m['nis'];
     $_SESSION['siswa_kelas'] = $kelas;
+
+    $sesi_aktif = ambilSesiAktifKelas($conn, $kelas);
+    $hasil['token'] = $sesi_aktif ? (string)$sesi_aktif['token'] : '';
 
     $hasil['success'] = true;
     $hasil['message'] = 'Login berhasil.';
@@ -266,6 +559,13 @@ function joinSesiSiswa($conn, $token)
         return $hasil;
     }
 
+    $kunci_throttle = padi_kunci_ip('join-token');
+    $tunggu = padi_throttle($kunci_throttle, 6, 900);
+    if ($tunggu > 0) {
+        $hasil['message'] = padi_pesan_throttle($tunggu);
+        return $hasil;
+    }
+
     // Cari sesi berdasarkan token yang masih aktif
     $stmt = $conn->prepare("SELECT id, kelas, materi FROM sesi WHERE UPPER(token) = UPPER(?) AND status = 'aktif' LIMIT 1");
     $stmt->bind_param("s", $token_bersih);
@@ -273,19 +573,20 @@ function joinSesiSiswa($conn, $token)
     $res = $stmt->get_result();
     if (!$res || $res->num_rows === 0) {
         $stmt->close();
+        padi_throttle_gagal($kunci_throttle);
         $hasil['message'] = 'Token tidak valid atau sesi sudah ditutup.';
         return $hasil;
     }
     $sesi = $res->fetch_assoc();
     $stmt->close();
 
-    // Opsional: Cek apakah sesi ini untuk kelas siswa? 
-    // Kita anggap jika token tahu, dia bisa ikut (beberapa skenario mungkin membatasi kelas)
-    if (strcasecmp($_SESSION['siswa_kelas'], $sesi['kelas']) !== 0) {
-        // $hasil['message'] = 'Token ini bukan untuk kelas Anda.';
-        // return $hasil;
-        // Opsional: biarkan saja jika token benar.
+    // Token hanya berlaku untuk kelas siswa yang login.
+    if (strcasecmp((string)($_SESSION['siswa_kelas'] ?? ''), (string)$sesi['kelas']) !== 0) {
+        padi_throttle_gagal($kunci_throttle);
+        $hasil['message'] = 'Token ini bukan untuk kelas Anda.';
+        return $hasil;
     }
+    padi_throttle_reset($kunci_throttle);
 
     $peserta_id = pastikanSiswaSesi($conn, $_SESSION['siswa_nama'], (int)$sesi['id']);
 
@@ -319,6 +620,13 @@ function loginSiswaTanpaAkun($conn, $nama, $token)
         return $hasil;
     }
 
+    $kunci_throttle = padi_kunci_ip('login-tanpa-akun');
+    $tunggu = padi_throttle($kunci_throttle, 6, 900);
+    if ($tunggu > 0) {
+        $hasil['message'] = padi_pesan_throttle($tunggu);
+        return $hasil;
+    }
+
     // 1. Cari sesi aktif berdasarkan token
     $stmt = $conn->prepare("SELECT id, materi, kelas FROM sesi WHERE UPPER(token) = UPPER(?) AND status = 'aktif' LIMIT 1");
     $stmt->bind_param("s", $token_bersih);
@@ -332,33 +640,42 @@ function loginSiswaTanpaAkun($conn, $nama, $token)
     $sesi = $res->fetch_assoc();
     $stmt->close();
 
-    // 2. Cari siswa di master_siswa (cek nama atau NIS)
-    $nama_lower = strtolower(trim($nama_bersih));
-    $nis_clean = normalisasiNis($nama_bersih); // kalau yang diinput ternyata NIS
-    $nama_like = '%' . $nama_lower . '%';
-    
-    $stmt_m = $conn->prepare("SELECT id, nama, nis, kelas FROM master_siswa WHERE LOWER(nama) LIKE ? OR nis = ? LIMIT 1");
-    $stmt_m->bind_param("ss", $nama_like, $nis_clean);
+    // 2. Cari siswa di master_siswa (cocok PERSIS: nama identik atau NIS)
+    $nis_clean = normalisasiNis($nama_bersih);
+    $nama_persis = trim($nama_bersih);
+
+    $stmt_m = $conn->prepare("SELECT id, nama, nis, kelas FROM master_siswa
+                              WHERE LOWER(nama) = LOWER(?) OR UPPER(IFNULL(nis,'')) = ?
+                              ORDER BY id ASC LIMIT 1");
+    $stmt_m->bind_param("ss", $nama_persis, $nis_clean);
     $stmt_m->execute();
     $res_m = $stmt_m->get_result();
     if (!$res_m || $res_m->num_rows === 0) {
         $stmt_m->close();
+        padi_throttle_gagal(padi_kunci_ip('login-tanpa-akun'));
         $hasil['message'] = 'Siswa tidak ditemukan di data kelas. Pastikan nama sesuai dengan absen.';
         return $hasil;
     }
     $master = $res_m->fetch_assoc();
     $stmt_m->close();
 
-    // 3. Pastikan siswa masuk ke tabel peserta sesi (tabel siswa)
+    // 3. Sesi kelas harus cocok dengan kelas siswa (cegah masuk kelas lain)
+    if (strcasecmp((string)$master['kelas'], (string)$sesi['kelas']) !== 0) {
+        padi_throttle_gagal(padi_kunci_ip('login-tanpa-akun'));
+        $hasil['message'] = 'Token ini bukan untuk kelas Anda.';
+        return $hasil;
+    }
+
+    // 4. Pastikan siswa masuk ke tabel peserta sesi (tabel siswa)
     // agar muncul di pantauan guru
     $peserta_id = pastikanSiswaSesi($conn, $master['nama'], (int)$sesi['id']);
 
-    // 4. Regenerasi sesi untuk keamanan
+    // 5. Regenerasi sesi untuk keamanan
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_regenerate_id(true);
     }
 
-    // 5. Isi sesi menggunakan data master agar fitur rekap nilai berfungsi normal
+    // 6. Isi sesi menggunakan data master agar fitur rekap nilai berfungsi normal
     $_SESSION['master_id'] = (int)$master['id'];
     $_SESSION['siswa_id'] = $peserta_id;
     $_SESSION['siswa_nama'] = $master['nama'];
@@ -379,6 +696,13 @@ function loginSiswaTanpaAkun($conn, $nama, $token)
 function verifikasiPasswordSiswa($conn, $master_id, $password)
 {
     $out = ['success' => false, 'message' => '', 'token' => ''];
+    $kunci_throttle = padi_kunci_ip('verifikasi-password');
+    $tunggu = padi_throttle($kunci_throttle, 6, 900);
+    if ($tunggu > 0) {
+        $out['message'] = padi_pesan_throttle($tunggu);
+        return $out;
+    }
+
     $stmt = $conn->prepare("SELECT nama, kelas, password FROM master_siswa WHERE id = ? LIMIT 1");
     $stmt->bind_param("i", $master_id);
     $stmt->execute();
@@ -392,9 +716,11 @@ function verifikasiPasswordSiswa($conn, $master_id, $password)
     $stmt->close();
 
     if (empty($m['password']) || !password_verify(trim((string)$password), $m['password'])) {
+        padi_throttle_gagal($kunci_throttle);
         $out['message'] = 'Password salah.';
         return $out;
     }
+    padi_throttle_reset($kunci_throttle);
 
     $sesi = ambilSesiAktifKelas($conn, $m['kelas']);
     if ($sesi) {
@@ -421,12 +747,20 @@ function loginGuru($conn, $username, $password)
         return $out;
     }
 
+    $kunci_throttle = padi_kunci_ip('login-guru');
+    $tunggu = padi_throttle($kunci_throttle);
+    if ($tunggu > 0) {
+        $out['message'] = padi_pesan_throttle($tunggu);
+        return $out;
+    }
+
     $stmt = $conn->prepare("SELECT id, nama, username, password FROM guru WHERE LOWER(username) = ? LIMIT 1");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $res = $stmt->get_result();
     if (!$res || $res->num_rows === 0) {
         $stmt->close();
+        padi_throttle_gagal($kunci_throttle);
         $out['message'] = 'Akun guru tidak ditemukan.';
         return $out;
     }
@@ -434,9 +768,11 @@ function loginGuru($conn, $username, $password)
     $stmt->close();
 
     if (!password_verify($password, $g['password'])) {
+        padi_throttle_gagal($kunci_throttle);
         $out['message'] = 'Password guru salah.';
         return $out;
     }
+    padi_throttle_reset($kunci_throttle);
 
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_regenerate_id(true);
@@ -501,7 +837,7 @@ function daftarHalamanGuru()
         'rekap-penilaian.php', 'rekap-penilaian-siswa.php', 'perkembangan-semester.php',
         'penilaian-afektif.php', 'penilaian-kognitif.php', 'penilaian-psikomotor.php',
         'penilaian-rekan.php', 'feedback-guru.php', 'profil-guru.php', 'aktivitas-guru.php',
-        'rubrik-platform.php'
+        'rubrik-platform.php', 'verifikasi-nilai.php'
     ];
 }
 
