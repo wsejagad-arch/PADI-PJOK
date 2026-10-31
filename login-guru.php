@@ -1,38 +1,36 @@
 <?php
-// login-guru.php — Halaman login guru (terpisah dari siswa)
-require_once 'koneksi.php';
-require_once 'auth.php';
+// login-guru.php — Halaman Login Khusus Guru (Anti-Slop, Clean, Responsive)
+require_once __DIR__ . '/koneksi.php';
+require_once __DIR__ . '/auth.php';
 
-// Database belum siap → pesan jelas, bukan halaman putih.
 if (empty($conn)) {
-    require_once 'pesan-db.php';
+    require_once __DIR__ . '/pesan-db.php';
     padi_halaman_db_mati($padi_db_error ?? 'Database tidak dapat dihubungi.');
 }
 
 padi_berbagi_sesi();
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Sudah login? langsung ke dashboard
+// Sudah login? Langsung ke dashboard guru
 if (!empty($_SESSION['guru_id'])) {
     padi_kembali('dashboard-guru.php');
 }
 
-// Pastikan kolom password & akun guru tersedia (sekali per sesi).
 padi_pastikan_skema_auth($conn);
 
 $err = '';
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'login') {
-        $hasil = loginGuru($conn, $_POST['username'] ?? '', $_POST['password'] ?? '');
-        if ($hasil['success']) {
+        $identitas = trim((string)($_POST['username'] ?? ''));
+        $password  = (string)($_POST['password'] ?? '');
+        $hasil = loginGuru($conn, $identitas, $password);
+        if (!empty($hasil['success'])) {
             padi_kembali('dashboard-guru.php');
         }
-        $err = $hasil['message'];
+        $err = $hasil['message'] ?? 'Login gagal. Periksa username dan password.';
     }
 }
 ?>
@@ -41,155 +39,238 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login Guru – PADI-PJOK</title>
-  <meta name="description" content="Login guru PADI-PJOK untuk membuat sesi penilaian, token materi, dan mengelola nilai siswa."/>
+  <title>Login Guru — PADI-PJOK</title>
+  <meta name="description" content="Login guru PADI-PJOK untuk mengelola sesi penilaian, token materi, dan rekap nilai."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  
   <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{--blue:#1A56DB;--blue-dark:#1240A8;--blue-light:#EFF4FF;--blue-mid:#DBEAFE;--green:#16A34A;--green-light:#DCFCE7;--text:#111827;--text-2:#374151;--text-3:#6B7280;--text-4:#9CA3AF;--border:#E5E7EB;--bg:#F3F6FB;--white:#FFFFFF;--radius:14px;--radius-sm:10px;--shadow:0 2px 8px rgba(0,0,0,.07);--shadow-md:0 4px 18px rgba(0,0,0,.10)}
-    body{font-family:'Inter',sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
-    body::before{content:'';position:fixed;width:400px;height:400px;border-radius:50%;filter:blur(80px);background:radial-gradient(circle,rgba(26,86,219,.18) 0%,transparent 70%);top:-100px;left:-100px;pointer-events:none;z-index:0}
-    body::after{content:'';position:fixed;width:300px;height:300px;border-radius:50%;filter:blur(80px);background:radial-gradient(circle,rgba(124,58,237,.12) 0%,transparent 70%);bottom:-60px;right:-60px;pointer-events:none;z-index:0}
+    .auth-page-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    }
 
-    .card{position:relative;z-index:1;width:100%;max-width:420px;background:var(--white);border-radius:28px;box-shadow:0 10px 40px rgba(0,0,0,.14);overflow:hidden;animation:slideUp .5s cubic-bezier(.22,1,.36,1) both}
-    @keyframes slideUp{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
+    .auth-card {
+      width: 100%;
+      max-width: 440px;
+      background: #ffffff;
+      border: 1px solid var(--padi-slate-200);
+      border-radius: 20px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+      padding: 36px 32px;
+    }
 
-    .header{padding:28px 24px 0;text-align:center}
-    .logo-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px}
-    .logo-row svg{width:36px;height:36px}
-    .logo-text{font-size:26px;font-weight:800;color:var(--blue);letter-spacing:-.5px}
-    .logo-sub{font-size:12px;color:var(--text-3);font-weight:500}
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
 
-    .hero{display:flex;align-items:flex-end;gap:0;padding:16px 24px 0;min-height:120px;background:linear-gradient(135deg,#F5F3FF 0%,#DBEAFE 100%);position:relative;overflow:hidden;margin-top:16px}
-    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 80% 30%,rgba(124,58,237,.08),transparent 60%)}
-    .hero-text{flex:1;padding-bottom:18px;z-index:1}
-    .hero-text h1{font-size:21px;font-weight:800;color:var(--text);margin-bottom:6px}
-    .hero-text p{font-size:12px;color:var(--text-3);line-height:1.6;max-width:210px}
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--padi-blue-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--padi-blue);
+    }
 
-    .body{padding:20px 24px 24px}
-    .form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
-    .form-label{font-size:13px;font-weight:600;color:var(--text)}
-    .input-wrap{position:relative;display:flex;align-items:center}
-    .input-icon{position:absolute;left:14px;color:var(--text-4);display:flex;align-items:center}
-    .input-icon svg{width:18px;height:18px}
-    .form-input{width:100%;padding:13px 44px 13px 42px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;color:var(--text);background:var(--white);outline:none;transition:border-color .2s,box-shadow .2s}
-    .form-input::placeholder{color:var(--text-4)}
-    .form-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,.12)}
-    .toggle-pw{position:absolute;right:10px;background:none;border:none;cursor:pointer;color:var(--text-4);display:flex;align-items:center;padding:6px;border-radius:8px;min-width:36px;min-height:36px;justify-content:center}
-    .toggle-pw:hover{color:var(--blue);background:var(--blue-light)}
-    .toggle-pw svg{width:18px;height:18px}
+    .brand-icon svg {
+      width: 22px;
+      height: 22px;
+    }
 
-    .alert{display:flex;gap:10px;align-items:flex-start;background:#FEF2F2;border:1.5px solid #FECACA;color:#991B1B;border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;line-height:1.5;margin-bottom:16px}
-    .alert svg{width:18px;height:18px;flex-shrink:0;margin-top:1px}
+    .brand-text {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--padi-blue);
+      letter-spacing: -0.02em;
+    }
 
-    .btn-masuk{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:15px;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(26,86,219,.35);transition:all .25s cubic-bezier(.22,1,.36,1);letter-spacing:.1px;min-height:48px}
-    .btn-masuk svg{width:20px;height:20px}
-    .btn-masuk:hover{background:var(--blue-dark);transform:translateY(-2px)}
-    .btn-masuk:disabled{opacity:.7;cursor:not-allowed;transform:none}
+    .form-header {
+      margin-bottom: 24px;
+    }
 
-    .info-note{display:flex;align-items:center;gap:10px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:var(--radius-sm);padding:12px 14px;margin-top:16px}
-    .info-note-icon{width:30px;height:30px;border-radius:50%;background:#7C3AED;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .info-note-icon svg{width:16px;height:16px;color:white}
-    .info-note p{font-size:11.5px;color:var(--text-3);line-height:1.5}
+    .form-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--padi-slate-900);
+      margin-bottom: 4px;
+    }
 
-    .back-link{display:block;text-align:center;margin-top:18px;font-size:13px;font-weight:600;color:var(--blue);text-decoration:none}
-    .back-link:hover{text-decoration:underline}
+    .form-subtitle {
+      font-size: 13px;
+      color: var(--padi-slate-500);
+    }
+
+    .pw-toggle-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--padi-slate-400);
+      padding: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+
+    .pw-toggle-btn:hover {
+      color: var(--padi-slate-700);
+    }
+
+    .card-footer-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--padi-slate-100);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .card-footer-nav a {
+      color: var(--padi-slate-600);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+
+    .card-footer-nav a:hover {
+      color: var(--padi-blue);
+    }
+
+    @media (max-width: 480px) {
+      .auth-page-wrap {
+        padding: 0;
+        background: #ffffff;
+      }
+      .auth-card {
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        padding: 24px 20px;
+      }
+    }
   </style>
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
-<body>
+<body class="auth-page">
 
-<div class="card">
-  <div class="header">
-    <div class="logo-row">
-      <svg viewBox="0 0 36 36" fill="none" aria-hidden="true">
-        <circle cx="23" cy="6" r="4" fill="#1A56DB"/>
-        <path d="M8 30L16 18 14 11 21 6" stroke="#1A56DB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M14 11L22 15L30 11" stroke="#1A56DB" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M22 15L19 24L24 30" stroke="#1A56DB" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M3 22Q12 17 21 21" stroke="#22C55E" stroke-width="2.2" stroke-linecap="round"/>
-      </svg>
-      <span class="logo-text">PADI-PJOK</span>
+<div class="auth-page-wrap">
+  <div class="auth-card">
+    
+    <div class="brand-row">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+          <line x1="6" y1="1" x2="6" y2="4"></line>
+          <line x1="10" y1="1" x2="10" y2="4"></line>
+          <line x1="14" y1="1" x2="14" y2="4"></line>
+        </svg>
+      </div>
+      <span class="brand-text">PADI-PJOK</span>
     </div>
-    <p class="logo-sub">Penilaian Autentik Digital Integratif untuk PJOK</p>
-  </div>
 
-  <div class="hero">
-    <div class="hero-text">
-      <h1>Login Guru</h1>
-      <p>Kelola sesi penilaian, token materi, dan nilai siswa PJOK.</p>
+    <div class="form-header">
+      <h1 class="form-title">Login Guru</h1>
+      <p class="form-subtitle">Kelola penilaian autentik, materi pembelajaran, dan rekap siswa.</p>
     </div>
-  </div>
 
-  <div class="body">
     <?php if ($err !== ''): ?>
-    <div class="alert" role="alert">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      <span><?= htmlspecialchars($err) ?></span>
-    </div>
+      <div class="padi-alert padi-alert-danger" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span><?= htmlspecialchars($err, ENT_QUOTES, 'UTF-8') ?></span>
+      </div>
     <?php endif; ?>
 
-    <form method="post" id="form-login" novalidate>
+    <form method="post" id="form-login">
       <input type="hidden" name="action" value="login"/>
 
-      <div class="form-group">
-        <label class="form-label" for="username">Email / Username</label>
-        <div class="input-wrap">
-          <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 8l9 6 9-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-          <input class="form-input" type="text" id="username" name="username"
-                 placeholder="Masukkan email atau username" autocomplete="username" required/>
+      <div class="padi-form-group">
+        <label class="padi-label" for="username">Email atau Username</label>
+        <div class="padi-input-wrap">
+          <span class="padi-input-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+          </span>
+          <input class="padi-input" type="text" id="username" name="username" 
+                 placeholder="nama@sekolah.sch.id / username" autocomplete="username" required autofocus/>
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="password">Password</label>
-        <div class="input-wrap">
-          <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-          <input class="form-input" type="password" id="password" name="password"
-                 placeholder="Masukkan password" autocomplete="current-password" required/>
-          <button type="button" class="toggle-pw" aria-label="Tampilkan password" onclick="togglePw()">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+      <div class="padi-form-group" style="margin-bottom: 24px;">
+        <label class="padi-label" for="password">Password</label>
+        <div class="padi-input-wrap">
+          <span class="padi-input-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </span>
+          <input class="padi-input" type="password" id="password" name="password" 
+                 placeholder="Masukkan password akun" autocomplete="current-password" required/>
+          <button type="button" class="pw-toggle-btn" onclick="togglePassword('password', this)" aria-label="Tampilkan password">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
           </button>
         </div>
       </div>
 
-      <button type="submit" class="btn-masuk" id="btn-masuk">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="10 17 15 12 10 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Masuk sebagai Guru
+      <button type="submit" class="padi-btn-primary" id="btn-submit">
+        <span>Masuk sebagai Guru</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
       </button>
     </form>
 
-    <div class="info-note">
-      <div class="info-note-icon">
-        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </div>
-      <p>Lupa atau belum punya password? Hubungi admin sekolah — password awal guru dibuat otomatis di server, bukan di halaman ini.</p>
+    <div class="card-footer-nav">
+      <a href="index.php?tab=siswa">&larr; Masuk sebagai Siswa</a>
+      <a href="index.php">Kembali ke Beranda Utama</a>
     </div>
 
-    <a class="back-link" href="index.php">&larr; Kembali ke halaman utama</a>
   </div>
 </div>
 
 <script>
-  function togglePw() {
-    var el = document.getElementById('password');
-    el.type = el.type === 'password' ? 'text' : 'password';
-    el.focus();
+  function togglePassword(id, btn) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.innerHTML = isPassword ? 
+      `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>` :
+      `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
   }
 
-  document.getElementById('form-login').addEventListener('submit', function (e) {
-    var u = document.getElementById('username').value.trim();
-    var p = document.getElementById('password').value.trim();
-    if (!u || !p) {
-      e.preventDefault();
-      alert('Email/username dan password wajib diisi.');
-      return;
-    }
-    var btn = document.getElementById('btn-masuk');
+  document.getElementById('form-login').addEventListener('submit', function() {
+    const btn = document.getElementById('btn-submit');
     btn.disabled = true;
-    btn.textContent = 'Memverifikasi...';
+    btn.style.opacity = '0.8';
+    btn.querySelector('span').textContent = 'Memverifikasi...';
   });
 </script>
 </body>

@@ -87,7 +87,11 @@ function padi_coba_koneksi($host, $user, $pass, $db, $port)
 {
     try {
         mysqli_report(MYSQLI_REPORT_OFF);
-        return new mysqli($host, $user, $pass, $db, $port);
+        $m = @new mysqli($host, $user, $pass, $db, $port);
+        if ($m && $m->connect_errno) {
+            return null;
+        }
+        return $m;
     } catch (Throwable $e) {
         if (function_exists('error_log')) {
             error_log('PADI: koneksi database gagal (' . ($db ?: 'tanpa db') . ') - ' . $e->getMessage());

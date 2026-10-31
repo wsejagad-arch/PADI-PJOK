@@ -292,7 +292,7 @@ function padi_embed_aman($url)
    ============================================================ */
 function pastikanTabelAuth($conn)
 {
-    if (!$conn) return;
+    if (!$conn || !empty($conn->connect_errno)) return;
 
     // 1. Kolom password di master_siswa
     $cek = $conn->query("SHOW COLUMNS FROM master_siswa LIKE 'password'");
@@ -456,7 +456,7 @@ function padi_simpan_nilai_guru($conn, $tabel, $kolom_pemilik, $siswa_id, $input
 if (!function_exists('padi_pastikan_skema_auth')) {
 function padi_pastikan_skema_auth($conn)
 {
-    if (!$conn) return;
+    if (!$conn || !empty($conn->connect_errno)) return;
     padi_mulai_sesi();
     if (!empty($_SESSION['padi_skema_auth'])) return;
     pastikanTabelAuth($conn);

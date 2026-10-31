@@ -1,5 +1,5 @@
 /* sw.js — service worker PADI-PJOK: shell aset di-cache, halaman network-first. */
-var CACHE = 'padi-v2';
+var CACHE = 'padi-v3';
 var ASET = ['aset/app.css', 'aset/app.js', 'aset/offline.html', 'aset/icon-192.png'];
 
 self.addEventListener('install', function (e) {

@@ -1,3 +1,4 @@
+<?php
 /**
  * padi_halaman_db_mati() — Dipakai halaman login bila database tidak bisa dihubungi.
  * Tujuan: pengguna TIDAK pernah melihat halaman putih / HTTP 500; tampil pesan

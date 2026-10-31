@@ -1,21 +1,18 @@
 <?php
-// login-siswa.php — Login siswa: Nomor Induk + password (token dari guru)
-require_once 'koneksi.php';
-require_once 'auth.php';
+// login-siswa.php — Halaman Login Siswa Berakun / Nomor Induk (Anti-Slop, Clean, Responsive)
+require_once __DIR__ . '/koneksi.php';
+require_once __DIR__ . '/auth.php';
 
-// Database belum siap → pesan jelas, bukan halaman putih.
 if (empty($conn)) {
-    require_once 'pesan-db.php';
+    require_once __DIR__ . '/pesan-db.php';
     padi_halaman_db_mati($padi_db_error ?? 'Database tidak dapat dihubungi.');
 }
 
 padi_berbagi_sesi();
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Pastikan kolom password & akun guru tersedia (sekali per sesi).
 padi_pastikan_skema_auth($conn);
 
 $err = '';
@@ -25,23 +22,23 @@ $token_sesi = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    // --- Login: nomor induk + password ---
     if ($action === 'login') {
-        $hasil = loginSiswa($conn, $_POST['dokumen'] ?? '', $_POST['password'] ?? '');
-        if ($hasil['success']) {
+        $dokumen = trim((string)($_POST['dokumen'] ?? ''));
+        $password = (string)($_POST['password'] ?? '');
+        $hasil = loginSiswa($conn, $dokumen, $password);
+        if (!empty($hasil['success'])) {
             $_SESSION['token_sesi'] = $hasil['token'] ?? '';
             if (!empty($_SESSION['kode_sesi_awal'])) {
                 padi_kembali('input-token.php?kode=' . urlencode((string)$_SESSION['kode_sesi_awal']));
             }
             padi_kembali('login-siswa.php?token=1');
         }
-        $err = $hasil['message'];
+        $err = $hasil['message'] ?? 'Login gagal. Periksa nomor induk dan token/password.';
     }
 
-    // --- Tampilkan token (verifikasi password ulang) ---
     if ($action === 'lihat_token') {
         $res = verifikasiPasswordSiswa($conn, (int)($_SESSION['master_id'] ?? 0), $_POST['password'] ?? '');
-        if ($res['success']) {
+        if (!empty($res['success'])) {
             $show_token = true;
             $token_sesi = $res['token'];
         } else {
@@ -50,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Popup token otomatis setelah login berhasil
+// Modal token setelah login berhasil
 if (isset($_GET['token']) && !empty($_SESSION['siswa_id'])) {
     $show_token = true;
     $token_sesi = $_SESSION['token_sesi'] ?? '';
@@ -61,220 +58,335 @@ if (isset($_GET['token']) && !empty($_SESSION['siswa_id'])) {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login Siswa – PADI-PJOK</title>
-  <meta name="description" content="Login siswa PADI-PJOK menggunakan Nomor Induk dan password (token dari guru)."/>
+  <title>Login Siswa — PADI-PJOK</title>
+  <meta name="description" content="Login siswa PADI-PJOK dengan Nomor Induk dan token/password."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  
   <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{--blue:#1A56DB;--blue-dark:#1240A8;--blue-light:#EFF4FF;--blue-mid:#DBEAFE;--green:#16A34A;--green-light:#DCFCE7;--text:#111827;--text-2:#374151;--text-3:#6B7280;--text-4:#9CA3AF;--border:#E5E7EB;--bg:#F3F6FB;--white:#FFFFFF;--radius:14px;--radius-sm:10px;--shadow:0 2px 8px rgba(0,0,0,.07);--shadow-md:0 4px 18px rgba(0,0,0,.10)}
-    body{font-family:'Inter',sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
-    body::before{content:'';position:fixed;width:400px;height:400px;border-radius:50%;filter:blur(80px);background:radial-gradient(circle,rgba(26,86,219,.15) 0%,transparent 70%);top:-100px;left:-100px;pointer-events:none;z-index:0}
-    body::after{content:'';position:fixed;width:300px;height:300px;border-radius:50%;filter:blur(80px);background:radial-gradient(circle,rgba(34,197,94,.10) 0%,transparent 70%);bottom:-60px;right:-60px;pointer-events:none;z-index:0}
+    .auth-page-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    }
 
-    .card{position:relative;z-index:1;width:100%;max-width:420px;background:var(--white);border-radius:28px;box-shadow:0 10px 40px rgba(0,0,0,.14);overflow:hidden;animation:slideUp .5s cubic-bezier(.22,1,.36,1) both}
-    @keyframes slideUp{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
+    .auth-card {
+      width: 100%;
+      max-width: 440px;
+      background: #ffffff;
+      border: 1px solid var(--padi-slate-200);
+      border-radius: 20px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+      padding: 36px 32px;
+    }
 
-    .header{padding:28px 24px 0;text-align:center}
-    .logo-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px}
-    .logo-row svg{width:36px;height:36px}
-    .logo-text{font-size:26px;font-weight:800;color:var(--blue);letter-spacing:-.5px}
-    .logo-sub{font-size:12px;color:var(--text-3);font-weight:500}
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
 
-    .hero{display:flex;align-items:flex-end;gap:0;padding:16px 24px 0;min-height:120px;background:linear-gradient(135deg,#F0F7FF 0%,#DBEAFE 100%);position:relative;overflow:hidden;margin-top:16px}
-    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 80% 30%,rgba(26,86,219,.07),transparent 60%)}
-    .hero-text{flex:1;padding-bottom:18px;z-index:1}
-    .hero-text h1{font-size:21px;font-weight:800;color:var(--text);margin-bottom:6px}
-    .hero-text p{font-size:12px;color:var(--text-3);line-height:1.6;max-width:210px}
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--padi-blue-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--padi-blue);
+    }
 
-    .body{padding:20px 24px 24px}
-    .form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
-    .form-label{font-size:13px;font-weight:600;color:var(--text)}
-    .input-wrap{position:relative;display:flex;align-items:center}
-    .input-icon{position:absolute;left:14px;color:var(--text-4);display:flex;align-items:center}
-    .input-icon svg{width:18px;height:18px}
-    .form-input{width:100%;padding:13px 44px 13px 42px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;color:var(--text);background:var(--white);outline:none;transition:border-color .2s,box-shadow .2s}
-    .form-input::placeholder{color:var(--text-4)}
-    .form-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,.12)}
-    .toggle-pw{position:absolute;right:10px;background:none;border:none;cursor:pointer;color:var(--text-4);display:flex;align-items:center;padding:6px;border-radius:8px;min-width:36px;min-height:36px;justify-content:center}
-    .toggle-pw:hover{color:var(--blue);background:var(--blue-light)}
-    .toggle-pw svg{width:18px;height:18px}
+    .brand-icon svg {
+      width: 22px;
+      height: 22px;
+    }
 
-    .alert{display:flex;gap:10px;align-items:flex-start;background:#FEF2F2;border:1.5px solid #FECACA;color:#991B1B;border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;line-height:1.5;margin-bottom:16px}
-    .alert svg{width:18px;height:18px;flex-shrink:0;margin-top:1px}
+    .brand-text {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--padi-blue);
+      letter-spacing: -0.02em;
+    }
 
-    .btn-masuk{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:15px;background:var(--blue);color:var(--white);border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(26,86,219,.35);transition:all .25s cubic-bezier(.22,1,.36,1);letter-spacing:.1px;min-height:48px}
-    .btn-masuk svg{width:20px;height:20px}
-    .btn-masuk:hover{background:var(--blue-dark);transform:translateY(-2px)}
-    .btn-masuk:disabled{opacity:.7;cursor:not-allowed;transform:none}
+    .form-header {
+      margin-bottom: 24px;
+    }
 
-    .info-note{display:flex;align-items:center;gap:10px;background:#EFF4FF;border:1px solid var(--blue-mid);border-radius:var(--radius-sm);padding:12px 14px;margin-top:16px}
-    .info-note-icon{width:30px;height:30px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .info-note-icon svg{width:16px;height:16px;color:white}
-    .info-note p{font-size:11.5px;color:var(--text-3);line-height:1.5}
+    .form-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--padi-slate-900);
+      margin-bottom: 4px;
+    }
 
-    .back-link{display:block;text-align:center;margin-top:18px;font-size:13px;font-weight:600;color:var(--blue);text-decoration:none}
-    .back-link:hover{text-decoration:underline}
+    .form-subtitle {
+      font-size: 13px;
+      color: var(--padi-slate-500);
+    }
 
-    /* ── Popup token ── */
-    .overlay{position:fixed;inset:0;background:rgba(17,24,39,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:16px;z-index:200;overflow-y:auto}
-    .overlay.show{display:flex}
-    .modal{width:100%;max-width:380px;background:var(--white);border-radius:22px;padding:26px 22px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:pop .35s cubic-bezier(.22,1,.36,1) both;margin:auto}
-    @keyframes pop{from{opacity:0;transform:scale(.92) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
-    .modal-icon{width:62px;height:62px;margin:0 auto 14px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center}
-    .modal-icon svg{width:32px;height:32px;color:var(--green)}
-    .modal h2{font-size:19px;font-weight:800;color:var(--text);margin-bottom:6px}
-    .modal p{font-size:12.5px;color:var(--text-3);line-height:1.6;margin-bottom:16px}
-    .token-box{background:var(--blue-light);border:2px dashed var(--blue-mid);border-radius:var(--radius-sm);padding:16px;margin-bottom:8px}
-    .token-label{font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
-    .token-code{font-size:26px;font-weight:800;letter-spacing:3px;color:var(--blue);word-break:break-all}
-    .token-hint{font-size:11.5px;color:var(--text-4);line-height:1.5;margin-bottom:18px}
-    .modal-actions{display:flex;flex-direction:column;gap:10px}
-    .btn-modal{width:100%;padding:14px;border-radius:var(--radius-sm);font-family:inherit;font-size:14.5px;font-weight:700;cursor:pointer;border:none;min-height:46px}
-    .btn-modal.primary{background:var(--blue);color:var(--white);box-shadow:0 6px 18px rgba(26,86,219,.32)}
-    .btn-modal.primary:hover{background:var(--blue-dark)}
-    .btn-modal.ghost{background:var(--blue-light);color:var(--blue)}
-    .btn-modal.ghost:hover{background:var(--blue-mid)}
+    .pw-toggle-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--padi-slate-400);
+      padding: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+
+    .pw-toggle-btn:hover {
+      color: var(--padi-slate-700);
+    }
+
+    .card-footer-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--padi-slate-100);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .card-footer-nav a {
+      color: var(--padi-slate-600);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+
+    .card-footer-nav a:hover {
+      color: var(--padi-blue);
+    }
+
+    /* Modal Token */
+    .padi-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 200;
+    }
+
+    .padi-modal-overlay.show {
+      display: flex;
+    }
+
+    .padi-modal-card {
+      width: 100%;
+      max-width: 400px;
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+      padding: 28px 24px;
+      text-align: center;
+      animation: modalFadeIn 0.25s ease-out;
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-check-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: var(--padi-green-light);
+      color: var(--padi-green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+
+    .token-display-box {
+      background: var(--padi-slate-50);
+      border: 1.5px dashed var(--padi-blue-border);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+
+    .token-display-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: var(--padi-blue);
+    }
+
+    @media (max-width: 480px) {
+      .auth-page-wrap {
+        padding: 0;
+        background: #ffffff;
+      }
+      .auth-card {
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        padding: 24px 20px;
+      }
+    }
   </style>
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
-<body>
+<body class="auth-page">
 
-<div class="card">
-  <div class="header">
-    <div class="logo-row">
-      <svg viewBox="0 0 36 36" fill="none" aria-hidden="true">
-        <circle cx="23" cy="6" r="4" fill="#1A56DB"/>
-        <path d="M8 30L16 18 14 11 21 6" stroke="#1A56DB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M14 11L22 15L30 11" stroke="#1A56DB" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M22 15L19 24L24 30" stroke="#1A56DB" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M3 22Q12 17 21 21" stroke="#22C55E" stroke-width="2.2" stroke-linecap="round"/>
-      </svg>
-      <span class="logo-text">PADI-PJOK</span>
+<div class="auth-page-wrap">
+  <div class="auth-card">
+    
+    <div class="brand-row">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+          <line x1="6" y1="1" x2="6" y2="4"></line>
+          <line x1="10" y1="1" x2="10" y2="4"></line>
+          <line x1="14" y1="1" x2="14" y2="4"></line>
+        </svg>
+      </div>
+      <span class="brand-text">PADI-PJOK</span>
     </div>
-    <p class="logo-sub">Penilaian Autentik Digital Integratif untuk PJOK</p>
-  </div>
 
-  <div class="hero">
-    <div class="hero-text">
-      <h1>Login Siswa</h1>
-      <p>Masuk dengan Nomor Induk dan password (token materi dari guru).</p>
+    <div class="form-header">
+      <h1 class="form-title">Login Siswa</h1>
+      <p class="form-subtitle">Masuk menggunakan Nomor Induk dan token materi dari guru.</p>
     </div>
-  </div>
 
-  <div class="body">
     <?php if ($err !== ''): ?>
-    <div class="alert" role="alert">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      <span><?= htmlspecialchars($err) ?></span>
-    </div>
+      <div class="padi-alert padi-alert-danger" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span><?= htmlspecialchars($err, ENT_QUOTES, 'UTF-8') ?></span>
+      </div>
     <?php endif; ?>
 
-    <form method="post" id="form-login" novalidate>
+    <form method="post" id="form-login">
       <input type="hidden" name="action" value="login"/>
 
-      <div class="form-group">
-        <label class="form-label" for="dokumen">Nomor Induk</label>
-        <div class="input-wrap">
-          <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M7 9h4M7 13h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="10" r="2" stroke="currentColor" stroke-width="1.8"/></svg></span>
-          <input class="form-input" type="text" id="dokumen" name="dokumen"
-                 placeholder="Contoh: 12345" autocomplete="username"
-                 inputmode="numeric" required/>
+      <div class="padi-form-group">
+        <label class="padi-label" for="dokumen">Nomor Induk Siswa (NIS)</label>
+        <div class="padi-input-wrap">
+          <span class="padi-input-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </span>
+          <input class="padi-input" type="text" id="dokumen" name="dokumen" 
+                 placeholder="Contoh: 12345" autocomplete="username" inputmode="numeric" required autofocus/>
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="password">Password</label>
-        <div class="input-wrap">
-          <span class="input-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-          <input class="form-input" type="password" id="password" name="password"
+      <div class="padi-form-group" style="margin-bottom: 24px;">
+        <label class="padi-label" for="password">Password / Token Materi</label>
+        <div class="padi-input-wrap">
+          <span class="padi-input-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </span>
+          <input class="padi-input" type="password" id="password" name="password" 
                  placeholder="Masukkan token dari guru" autocomplete="current-password" required/>
-          <button type="button" class="toggle-pw" aria-label="Tampilkan password" onclick="togglePw()">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+          <button type="button" class="pw-toggle-btn" onclick="togglePassword('password', this)" aria-label="Tampilkan password">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
           </button>
         </div>
       </div>
 
-      <button type="submit" class="btn-masuk" id="btn-masuk">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="10 17 15 12 10 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Masuk
+      <button type="submit" class="padi-btn-primary" id="btn-submit">
+        <span>Masuk ke Dashboard Siswa</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
       </button>
     </form>
 
-    <div class="info-note">
-      <div class="info-note-icon">
-        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </div>
-      <p>Password pertama kali = token materi dari guru. Bila gagal, minta token terbaru ke guru PJOK.</p>
+    <div class="card-footer-nav">
+      <a href="index.php?tab=siswa">Belum punya akun? Masuk Cepat Pakai Token</a>
+      <a href="index.php">Kembali ke Beranda Utama</a>
     </div>
 
-    <a class="back-link" href="index.php">&larr; Kembali ke halaman utama</a>
   </div>
 </div>
 
-<!-- ── Popup token ── -->
-<div class="overlay <?= $show_token ? 'show' : '' ?>" id="overlay-token" role="dialog" aria-modal="true" aria-labelledby="token-title">
-  <div class="modal">
-    <div class="modal-icon">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<!-- Modal Token Pop-up -->
+<div class="padi-modal-overlay <?= $show_token ? 'show' : '' ?>" id="modal-token">
+  <div class="padi-modal-card">
+    <div class="modal-check-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
     </div>
-    <h2 id="token-title">Login Berhasil!</h2>
-    <p>Simpan token sesi materi PJOK kamu. Token ini juga menjadi password keamanan akunmu.</p>
+    
+    <h3 style="font-size: 18px; font-weight: 800; color: var(--padi-slate-900); margin-bottom: 4px;">Login Berhasil</h3>
+    <p style="font-size: 13px; color: var(--padi-slate-500); line-height: 1.5;">Simpan token sesi materi Anda untuk referensi pembelajaran.</p>
 
-    <div class="token-box">
-      <p class="token-label">Token Materi</p>
-      <p class="token-code" id="token-code"><?= htmlspecialchars($token_sesi !== '' ? $token_sesi : '—') ?></p>
+    <div class="token-display-box">
+      <div style="font-size: 11px; font-weight: 700; color: var(--padi-slate-400); text-transform: uppercase; margin-bottom: 4px;">Token Sesi Anda</div>
+      <div class="token-display-val" id="token-code-text"><?= htmlspecialchars($token_sesi !== '' ? $token_sesi : '—', ENT_QUOTES, 'UTF-8') ?></div>
     </div>
-    <p class="token-hint">Catat atau salin token ini. Jangan bagikan kepada siswa lain.</p>
 
-    <div class="modal-actions">
-      <button type="button" class="btn-modal primary" id="btn-masuk-siswa" <?= $token_sesi === '' ? 'disabled' : '' ?>>
-        Masuk ke Halaman Siswa
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <button type="button" class="padi-btn-primary" onclick="window.location.href='dashboard-siswa.php'">
+        Lanjut ke Dashboard Siswa
       </button>
-      <button type="button" class="btn-modal ghost" onclick="copyToken()">Salin Token</button>
+      <button type="button" onclick="copyModalToken()" style="background: var(--padi-slate-100); border: 1px solid var(--padi-slate-200); color: var(--padi-slate-700); padding: 10px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;">
+        Salin Token
+      </button>
     </div>
   </div>
 </div>
 
 <script>
-  function togglePw() {
-    const el = document.getElementById('password');
-    el.type = el.type === 'password' ? 'text' : 'password';
-    el.focus();
+  function togglePassword(id, btn) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.innerHTML = isPassword ? 
+      `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>` :
+      `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
   }
 
-  function copyToken() {
-    const kode = document.getElementById('token-code').textContent.trim();
-    if (!kode || kode === '—') return;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(kode).then(
-        () => alert('Token disalin: ' + kode),
-        () => alert('Token: ' + kode)
-      );
-    } else {
-      alert('Token: ' + kode);
-    }
+  function copyModalToken() {
+    const code = document.getElementById('token-code-text').textContent.trim();
+    if (!code || code === '—') return;
+    navigator.clipboard.writeText(code).then(() => {
+      alert('Token berhasil disalin: ' + code);
+    }).catch(() => {});
   }
 
-  var btnSiswa = document.getElementById('btn-masuk-siswa');
-  if (btnSiswa) {
-    btnSiswa.addEventListener('click', function () {
-      window.location.href = 'dashboard-siswa.php';
-    });
-  }
-
-  document.getElementById('form-login').addEventListener('submit', function (e) {
-    var dok = document.getElementById('dokumen').value.trim();
-    var pw  = document.getElementById('password').value.trim();
-    if (!dok || !pw) {
-      e.preventDefault();
-      alert('Nomor induk dan password wajib diisi.');
-      return;
-    }
-    var btn = document.getElementById('btn-masuk');
+  document.getElementById('form-login').addEventListener('submit', function() {
+    const btn = document.getElementById('btn-submit');
     btn.disabled = true;
-    btn.textContent = 'Memverifikasi...';
+    btn.style.opacity = '0.8';
+    btn.querySelector('span').textContent = 'Memverifikasi...';
   });
 </script>
 </body>

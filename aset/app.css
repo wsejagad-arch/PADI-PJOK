@@ -1,38 +1,367 @@
-/* app.css — lapisan UI bersama: mode PC (sidebar) & mode mobile (app-like).
-   Dimuat SETELAH CSS inline tiap halaman, jadi menang untuk aturan layout. */
+/* ==========================================================================
+   PADI-PJOK — Modern Anti-Slop Design System (app.css)
+   Clean, responsive, systematic, and high-craft UI for mobile & desktop.
+   ========================================================================== */
 
 :root {
-  --padi-blue: #1A56DB;
-  --padi-blue-light: #EFF4FF;
-  --padi-border: #E5E7EB;
-  --padi-bg: #F3F6FB;
-  --padi-text-3: #6B7280;
-  --padi-sidebar: 248px;
+  /* Brand Palette */
+  --padi-blue: #1d4ed8;
+  --padi-blue-hover: #1e40af;
+  --padi-blue-active: #172554;
+  --padi-blue-light: #eff6ff;
+  --padi-blue-mid: #dbeafe;
+  --padi-blue-border: #bfdbfe;
+
+  /* Neutrals (Tailwind/Slate Scale) */
+  --padi-slate-50: #f8fafc;
+  --padi-slate-100: #f1f5f9;
+  --padi-slate-200: #e2e8f0;
+  --padi-slate-300: #cbd5e1;
+  --padi-slate-400: #94a3b8;
+  --padi-slate-500: #64748b;
+  --padi-slate-600: #475569;
+  --padi-slate-700: #334155;
+  --padi-slate-800: #1e293b;
+  --padi-slate-900: #0f172a;
+
+  /* Semantics */
+  --padi-green: #10b981;
+  --padi-green-hover: #059669;
+  --padi-green-light: #ecfdf5;
+  --padi-green-border: #a7f3d0;
+
+  --padi-amber: #f59e0b;
+  --padi-amber-light: #fffbeb;
+  --padi-amber-border: #fde68a;
+
+  --padi-rose: #ef4444;
+  --padi-rose-hover: #dc2626;
+  --padi-rose-light: #fef2f2;
+  --padi-rose-border: #fecaca;
+
+  /* Aliases */
+  --padi-bg: #f8fafc;
+  --padi-surface: #ffffff;
+  --padi-border: var(--padi-slate-200);
+  --padi-text: var(--padi-slate-900);
+  --padi-text-2: var(--padi-slate-700);
+  --padi-text-3: var(--padi-slate-500);
+  --padi-text-4: var(--padi-slate-400);
+
+  /* Geometry & Shadows */
+  --padi-sidebar: 260px;
+  --padi-radius-sm: 8px;
+  --padi-radius: 14px;
+  --padi-radius-lg: 20px;
+  --padi-radius-full: 9999px;
+
+  --padi-shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --padi-shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.08);
+  --padi-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --padi-shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --padi-shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+
+  --padi-transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ---------- Mobile: app-like (layout inline tiap halaman tetap dipakai) ---------- */
-html { -webkit-text-size-adjust: 100%; }
+/* ==========================================================================
+   Global Base & Typography
+   ========================================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
-  padding-bottom: env(safe-area-inset-bottom);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--padi-bg);
+  color: var(--padi-text);
+  line-height: 1.5;
   -webkit-tap-highlight-color: transparent;
-}
-nav.bottom-nav, nav.nav-bottom {
-  padding-bottom: calc(6px + env(safe-area-inset-bottom));
-}
-@media (hover: none) and (pointer: coarse) {
-  button, .nav-item, .filter-btn, .btn-submit { min-height: 40px; }
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* ---------- Mode PC ---------- */
+/* ==========================================================================
+   Anti-Slop Utility Components
+   ========================================================================== */
+.padi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: var(--padi-radius-full);
+  line-height: 1;
+}
+.padi-badge-blue {
+  background: var(--padi-blue-light);
+  color: var(--padi-blue);
+  border: 1px solid var(--padi-blue-border);
+}
+.padi-badge-green {
+  background: var(--padi-green-light);
+  color: var(--padi-green-hover);
+  border: 1px solid var(--padi-green-border);
+}
+.padi-badge-slate {
+  background: var(--padi-slate-100);
+  color: var(--padi-slate-600);
+  border: 1px solid var(--padi-slate-200);
+}
+
+/* Modern Segmented Control / Tabs */
+.padi-tabs {
+  display: flex;
+  background: var(--padi-slate-100);
+  border: 1px solid var(--padi-slate-200);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.padi-tab-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--padi-slate-500);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: var(--padi-transition);
+}
+
+.padi-tab-btn:hover:not(.active) {
+  color: var(--padi-slate-800);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.padi-tab-btn.active {
+  background: #ffffff;
+  color: var(--padi-blue);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Polished Form Inputs */
+.padi-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.padi-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--padi-slate-700);
+}
+
+.padi-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.padi-input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--padi-slate-400);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.padi-input-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.padi-input {
+  width: 100%;
+  height: 44px;
+  padding: 10px 14px 10px 42px;
+  border: 1.5px solid var(--padi-slate-200);
+  border-radius: var(--padi-radius-sm);
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--padi-slate-800);
+  background: #ffffff;
+  outline: none;
+  transition: var(--padi-transition);
+}
+
+.padi-input:focus {
+  border-color: var(--padi-blue);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+}
+
+.padi-input::placeholder {
+  color: var(--padi-slate-400);
+}
+
+.padi-btn-action {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--padi-slate-400);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  transition: var(--padi-transition);
+}
+
+.padi-btn-action:hover {
+  color: var(--padi-blue);
+  background: var(--padi-blue-light);
+}
+
+/* Polished Buttons */
+.padi-btn-primary {
+  width: 100%;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  background: var(--padi-blue);
+  color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: var(--padi-radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(29, 78, 216, 0.18), 0 1px 2px rgba(29, 78, 216, 0.12);
+  transition: var(--padi-transition);
+}
+
+.padi-btn-primary:hover {
+  background: var(--padi-blue-hover);
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.28);
+  transform: translateY(-1px);
+}
+
+.padi-btn-primary:active {
+  background: var(--padi-blue-active);
+  transform: translateY(0);
+}
+
+.padi-btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Elegant Alert Boxes */
+.padi-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--padi-radius-sm);
+  font-size: 12.5px;
+  line-height: 1.45;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.padi-alert-danger {
+  background: var(--padi-rose-light);
+  border: 1px solid var(--padi-rose-border);
+  color: #991b1b;
+}
+
+.padi-alert-danger svg {
+  color: var(--padi-rose);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ==========================================================================
+   Mobile Ergonomics (< 1024px)
+   ========================================================================== */
+@media (max-width: 639px) {
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .actions-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+  }
+}
+
+nav.bottom-nav, nav.nav-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 64px;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--padi-slate-200);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  button, .nav-item, .filter-btn, .btn-submit, .padi-btn-primary {
+    min-height: 44px;
+  }
+}
+
+/* ==========================================================================
+   Desktop System & Sidebar Layout (>= 1024px)
+   ========================================================================== */
 @media (min-width: 1024px) {
-  body {
+  /* ONLY add sidebar offset when a navigation sidebar actually exists */
+  body:has(nav.bottom-nav),
+  body:has(nav.nav-bottom),
+  body.has-sidebar {
     max-width: none !important;
     margin: 0 !important;
-    padding: 0 0 40px calc(var(--padi-sidebar) + 32px) !important;
+    padding: 0 0 40px calc(var(--padi-sidebar) + 36px) !important;
     background: var(--padi-bg);
   }
 
-  /* navigasi bawah → sidebar kiri */
+  /* When there is NO sidebar (auth pages), ensure centered, expansive layout */
+  body:not(:has(nav.bottom-nav)):not(:has(nav.nav-bottom)):not(.has-sidebar) {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: var(--padi-bg);
+  }
+
+  /* Transform mobile bottom-nav into sleek left sidebar */
   nav.bottom-nav, nav.nav-bottom {
     position: fixed !important;
     inset: 0 auto 0 0 !important;
@@ -43,105 +372,236 @@ nav.bottom-nav, nav.nav-bottom {
     flex-direction: column !important;
     justify-content: flex-start !important;
     align-items: stretch !important;
-    gap: 4px;
-    padding: 18px 12px !important;
-    background: #fff;
+    gap: 6px;
+    padding: 24px 14px 20px !important;
+    background: #ffffff;
     border-top: 0 !important;
-    border-right: 1px solid var(--padi-border);
-    box-shadow: none !important;
+    border-right: 1px solid var(--padi-slate-200);
+    box-shadow: 1px 0 3px rgba(0, 0, 0, 0.02) !important;
     z-index: 60;
   }
+
+  /* Sidebar Brand Header */
   nav.bottom-nav::before, nav.nav-bottom::before {
     content: "PADI-PJOK";
-    display: block;
-    padding: 4px 12px 16px;
-    font-size: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px 20px;
+    font-size: 18px;
     font-weight: 800;
-    letter-spacing: .2px;
+    letter-spacing: -0.02em;
     color: var(--padi-blue);
+    border-bottom: 1px solid var(--padi-slate-100);
+    margin-bottom: 12px;
   }
+
+  /* Sidebar Links */
   nav.bottom-nav .nav-item, nav.nav-bottom .nav-item {
     flex-direction: row !important;
     justify-content: flex-start !important;
     align-items: center;
     width: 100% !important;
-    height: 46px !important;
+    height: 44px !important;
     gap: 12px;
     padding: 0 14px;
-    border-radius: 10px;
-    color: var(--padi-text-3);
+    border-radius: var(--padi-radius-sm);
+    color: var(--padi-slate-600);
+    text-decoration: none;
+    transition: var(--padi-transition);
   }
+
+  nav.bottom-nav .nav-item:hover, nav.nav-bottom .nav-item:hover {
+    background: var(--padi-slate-100);
+    color: var(--padi-slate-900);
+  }
+
   nav.bottom-nav .nav-item span, nav.nav-bottom .nav-item span {
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
   }
+
   nav.bottom-nav .nav-item svg, nav.nav-bottom .nav-item svg {
-    width: 20px; height: 20px; transform: none !important;
+    width: 20px;
+    height: 20px;
+    transform: none !important;
+    flex-shrink: 0;
   }
+
   nav.bottom-nav .nav-item.active, nav.nav-bottom .nav-item.active {
     background: var(--padi-blue-light);
     color: var(--padi-blue);
+    font-weight: 700;
+    border-left: 3px solid var(--padi-blue);
   }
-  nav.bottom-nav .nav-indicator, nav.nav-bottom .nav-indicator { display: none !important; }
 
-  /* area konten melebar, daftar kartu jadi grid */
+  nav.bottom-nav .nav-indicator, nav.nav-bottom .nav-indicator {
+    display: none !important;
+  }
+
+  /* Desktop Content Container */
   body > main, main.content, .content {
     width: 100% !important;
-    max-width: 1180px !important;
+    max-width: 1240px !important;
     margin: 0 auto !important;
-    padding: 26px 8px 56px !important;
+    padding: 32px 16px 64px !important;
   }
+
+  /* Responsive Grid Enhancements for Dashboard & Assessment pages */
+  .stats-row {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 16px !important;
+    padding: 24px 0 0 !important;
+  }
+
+  .stat-card {
+    padding: 18px 16px !important;
+    border-radius: var(--padi-radius) !important;
+    border: 1px solid var(--padi-slate-200);
+    box-shadow: var(--padi-shadow-xs) !important;
+  }
+
+  .actions-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 14px !important;
+  }
+
+  .progress-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 14px !important;
+    overflow-x: visible !important;
+  }
+
+  .progress-card {
+    min-width: 0 !important;
+    border: 1px solid var(--padi-slate-200);
+  }
+
+  .tugas-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 16px !important;
+  }
+
+  .two-col {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 20px !important;
+  }
+
+  .form-card,
+  .token-result {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px !important;
+  }
+
+  .rubric-card,
+  .video-card,
+  .analysis-card,
+  .stepper-card,
+  .score-card,
+  .ringkasan-card,
+  .draft-card {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
   .student-list,
   .kelas-list,
   .card-grid {
     display: grid !important;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 14px;
+    gap: 16px;
     align-items: start;
   }
-  .student-card { height: 100%; }
-  .ringkasan-row, .stat-row, .score-row { flex-wrap: wrap; row-gap: 12px; }
-  .modal { max-width: 560px !important; }
 
-  /* brand sudah ada di sidebar → sembunyikan logo ganda & sisa UI mobile */
-  .topbar-logo { display: none !important; }
-  nav.bottom-nav .nav-item, nav.nav-bottom .nav-item { min-height: 0; }
+  /* Fixed sticky buttons on desktop behave as normal footer actions */
+  .sticky-btn,
+  .sticky-actions {
+    position: static !important;
+    max-width: 100% !important;
+    transform: none !important;
+    left: auto !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 24px 0 !important;
+    box-shadow: none !important;
+    margin-top: 20px;
+  }
+
+  .hero {
+    border-radius: 16px !important;
+    margin-top: 16px !important;
+    min-height: 180px !important;
+  }
+
+  .topbar-logo {
+    display: none !important;
+  }
+
+  .topbar {
+    max-width: 1240px;
+    margin: 0 auto;
+    border-radius: 0 0 12px 12px;
+  }
 }
-
-/* toast kosong tampil sebagai pil hitam kecil — sembunyikan */
-.toast:empty { display: none !important; }
 
 @media (min-width: 1440px) {
-  .student-list, .card-grid { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
+  .student-list, .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  }
 }
 
-/* ---------- PWA: tombol install ---------- */
+/* Toast empty hide */
+.toast:empty {
+  display: none !important;
+}
+
+/* PWA Install Button */
 #padi-install {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
+  right: 20px;
+  bottom: 20px;
   z-index: 70;
   display: none;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--padi-blue);
-  color: #fff;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--padi-radius-full);
+  background: var(--padi-slate-900);
+  color: #ffffff;
   font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgb(26 86 219 / 35%);
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: var(--padi-shadow-lg);
   cursor: pointer;
-}
-#padi-install.show { display: inline-flex; }
-@media (max-width: 1023px) {
-  #padi-install { right: 14px; bottom: calc(84px + env(safe-area-inset-bottom)); }
+  transition: var(--padi-transition);
 }
 
-/* ---------- Cetak ---------- */
+#padi-install.show {
+  display: inline-flex;
+}
+
+#padi-install:hover {
+  background: #000000;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 1023px) {
+  #padi-install {
+    right: 14px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Print Optimization */
 @media print {
-  body { padding: 0 !important; max-width: none !important; }
-  nav.bottom-nav, nav.nav-bottom, #padi-install, .topbar { display: none !important; }
+  body {
+    padding: 0 !important;
+    max-width: none !important;
+    background: #ffffff !important;
+  }
+  nav.bottom-nav, nav.nav-bottom, #padi-install, .topbar {
+    display: none !important;
+  }
 }
