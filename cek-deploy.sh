@@ -13,7 +13,7 @@ h() { printf '\n\033[1;34m== %s ==\033[0m\n' "$*"; }
 h "Layanan"
 systemctl is-active --quiet nginx      && g "nginx aktif"      || b "nginx TIDAK aktif"
 systemctl is-active --quiet mariadb    && g "mariadb aktif"    || b "mariadb TIDAK aktif"
-systemctl is-active --quiet php*-fpm   && g "php-fpm aktif"    || b "php-fpm TIDAK aktif"
+systemctl list-units --type=service --state=running --no-legend 'php*-fpm.service' | grep -q . && g "php-fpm aktif" || b "php-fpm TIDAK aktif"
 
 h "Berkas aplikasi"
 [ -f "$APP_DIR/index.php" ]    && g "index.php ada"    || b "index.php TIDAK ada"
