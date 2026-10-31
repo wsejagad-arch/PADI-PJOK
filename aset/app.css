@@ -802,6 +802,158 @@ nav.bottom-nav, nav.nav-bottom {
   }
 }
 
+/* ==========================================================================
+   Tema "Cerah Tegas" (2026)
+   Prinsip anti-slop: latar gradasi cerah, border flat tegas, tanpa bayangan,
+   tanpa blur/glass, radius konsisten. Lapisan ini dimuat paling akhir agar
+   menyeragamkan CSS inline milik tiap halaman.
+   ========================================================================== */
+:root {
+  --padi-line: #1E293B;        /* garis utama (tegas) */
+  --padi-line-soft: #94A3B8;   /* garis permukaan kartu */
+  --border: #CBD5E1;           /* variabel --border milik halaman */
+}
+
+/* 1. Latar gradasi cerah */
+body {
+  background-color: #EFF8FF !important;
+  background-image:
+    radial-gradient(60rem 40rem at 6% -10%, #BFDBFE 0%, rgba(191, 219, 254, 0) 62%),
+    radial-gradient(52rem 36rem at 106% 2%, #A7F3D0 0%, rgba(167, 243, 208, 0) 60%),
+    radial-gradient(56rem 42rem at 48% 112%, #FDE68A 0%, rgba(253, 230, 138, 0) 64%) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+}
+
+/* 2. Flat: buang bayangan/blur, andalkan garis */
+*, *::before, *::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 3. Permukaan: putih, garis tegas 2px, radius seragam */
+.card,
+[class$="-card"],
+[class*="-card "],
+.hero,
+.form-card,
+.token-result,
+.auth-card,
+.materi-card,
+.student-card,
+.student-item,
+.kelas-item,
+.tugas-item,
+.riwayat-item,
+.rubric-item,
+.r-item,
+.komp-card,
+.score-item,
+.s-score-item,
+.c4-item,
+.guide-item,
+.temuan-item,
+.perk-card,
+.stepper-card,
+.pillar-card,
+.modal {
+  background-color: #FFFFFF !important;
+  border: 2px solid var(--padi-line-soft) !important;
+  border-radius: var(--padi-radius) !important;
+  box-shadow: none !important;
+}
+
+/* Elemen melayang tetap datar */
+.modal,
+.toast,
+.overlay,
+.sticky-btn,
+.sticky-actions,
+#padi-install {
+  box-shadow: none !important;
+}
+
+/* 4. Bilah atas & navigasi: putih rata dengan garis tegas */
+.topbar {
+  background: #FFFFFF !important;
+  border: 0 !important;
+  border-bottom: 2px solid var(--padi-line) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Hero ikut garis tepi konten agar sejajar kartu (tidak menempel tepi layar) */
+@media (max-width: 1023px) {
+  .hero {
+    margin: 12px 16px 0 !important;
+  }
+}
+
+nav.bottom-nav,
+nav.nav-bottom {
+  background: #FFFFFF !important;
+  border-top: 2px solid var(--padi-line) !important;
+  box-shadow: none !important;
+}
+
+nav.bottom-nav .nav-item,
+nav.nav-bottom .nav-item,
+nav.bottom-nav .nav-item.active,
+nav.nav-bottom .nav-item.active {
+  box-shadow: none !important;
+}
+
+@media (min-width: 1024px) {
+  nav.bottom-nav,
+  nav.nav-bottom {
+    border-top: 0 !important;
+    border-right: 2px solid var(--padi-line) !important;
+    box-shadow: none !important;
+  }
+}
+
+/* 5. Kontrol: garis 2px, sudut konsisten */
+.padi-input,
+.field-select,
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="search"],
+input[type="email"],
+select,
+textarea {
+  border: 2px solid #CBD5E1 !important;
+  border-radius: var(--padi-radius-sm) !important;
+  background-color: #FFFFFF !important;
+}
+
+.padi-input:focus,
+.field-select:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--padi-blue) !important;
+  outline: 2px solid rgba(29, 78, 216, 0.16);
+  outline-offset: 1px;
+}
+
+/* 6. Tombol utama: tetap solid, diberi garis tegas */
+.padi-btn-primary,
+.btn-buat,
+.btn-submit,
+.btn-primary {
+  border: 2px solid var(--padi-line) !important;
+}
+
+/* 7. Fokus keyboard tetap terlihat (outline, bukan bayangan) */
+:focus-visible {
+  outline: 2px solid var(--padi-blue);
+  outline-offset: 2px;
+}
+
 /* Print Optimization */
 @media print {
   body {

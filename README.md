@@ -120,6 +120,15 @@ Satu lapisan aset dipakai semua halaman lewat `ui-head.php`:
 - **Mode mobile** (<1024px): tetap app-like — bottom-nav selebar layar (tanpa celah kiri/kanan meski layar >480px), `safe-area` iOS, target sentuh ≥40px.
 - Deteksi otomatis via media query (`data-mode="pc|mobile"` di `<html>`), tanpa tombol manual.
 
+### Tema "Cerah Tegas"
+
+Lapisan tema di akhir `aset/app.css` (dimuat setelah CSS inline tiap halaman):
+
+- Latar gradasi cerah biru → mint → kuning (`radial-gradient`, `background-attachment: fixed`).
+- Border flat **2px**: kartu/hero/panel `#94A3B8`, topbar & navigasi `#1E293B`.
+- Tanpa bayangan, tanpa blur/glass; radius seragam 14px (kartu) dan 10px (kontrol).
+- Kontrol (input/select/textarea) bergaris 2px + fokus outline; tombol utama bergaris tegas.
+
 Berkas: `aset/app.css`, `aset/app.js`, `ui-head.php`.
 
 ### PWA (installable)
