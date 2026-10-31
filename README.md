@@ -148,6 +148,21 @@ Untuk merilis aset baru, cukup ubah berkasnya — `?v=` diambil dari `filemtime`
   (kognitif, video praktik, psikomotor, afektif, penilaian rekan — sudah/belum), plus ringkasan jumlah.
 - **Rekap penilaian** (`rekap-penilaian.php`) berupa tabel per indikator (Kognitif, Afektif, Psikomotor, Diri/Rekan,
   Rata-rata, Predikat) dengan filter kelas + nama siswa; rubrik 0–20 dikonversi ke skala 0–100.
+  Tersedia **Ekspor CSV** dan **Ekspor Excel** yang mengikuti filter aktif.
+
+### Cetak / Simpan PDF
+
+Halaman data guru memakai `ui-cetak.php` + `aset/cetak.css`:
+
+- `padi_cetak_siap('JUDUL', 'subjudul', ['orientasi' => 'landscape'])` di awal `<body>` → memuat CSS cetak,
+  kop surat (logo + instansi + nama sekolah + alamat/NPSN) dan tombol **Cetak / Simpan PDF**.
+- `padi_cetak_ttd()` sebelum `</body>` → blok tanda tangan: Kepala Sekolah (kiri) dan Guru Mata Pelajaran PJOK
+  (kanan, nama dari akun guru yang login) + NIP.
+- Saat dicetak: topbar, navigasi, filter, tombol, dan bayangan dihilangkan; tabel bergaris hitam;
+  kartu berubah menjadi blok polos. Halaman yang memakai: rekap penilaian, rekap per siswa, pantau siswa,
+  jadwal, nilai, data siswa, laporan, verifikasi nilai, perkembangan semester.
+- Identitas sekolah diisi di `.env`: `SEKOLAH_INSTANSI`, `SEKOLAH_NAMA`, `SEKOLAH_ALAMAT`, `SEKOLAH_NPSN`,
+  `SEKOLAH_KOTA`, `TAHUN_PELAJARAN`, `KEPALA_SEKOLAH`, `KEPALA_SEKOLAH_NIP`, `GURU_NIP`.
 
 ## Keamanan
 

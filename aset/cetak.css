@@ -1,0 +1,276 @@
+/* cetak.css — kop surat, tabel, dan tanda tangan untuk cetak / simpan PDF.
+   Dipakai lewat ui-cetak.php: padi_cetak_siap() + padi_cetak_ttd(). */
+
+/* ---------- Layar: toolbar kecil, kop disembunyikan ---------- */
+.cetak-toolbar {
+  position: fixed;
+  right: 16px;
+  bottom: 84px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 2px solid #1E293B;
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: inherit;
+}
+
+.cetak-toolbar button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #1E293B;
+  background: #1A56DB;
+  color: #fff;
+  cursor: pointer;
+}
+
+.cetak-toolbar span {
+  font-size: 10.5px;
+  color: #6B7280;
+  max-width: 180px;
+  line-height: 1.25;
+}
+
+.cetak-kop,
+.cetak-garis-ganda,
+.cetak-kepala,
+.cetak-ttd,
+.cetak-catatan {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .cetak-toolbar { bottom: calc(84px + env(safe-area-inset-bottom)); right: 12px; }
+  .cetak-toolbar span { display: none; }
+}
+
+/* ---------- Cetak ---------- */
+@media print {
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .cetak-toolbar,
+  .topbar,
+  nav.bottom-nav,
+  nav.nav-bottom,
+  .bottom-nav,
+  #padi-install,
+  #padi-sidebar-toggle,
+  .filter,
+  .filter-bar,
+  .search-row,
+  .hero,
+  .hero-img,
+  .toast,
+  .overlay,
+  .modal,
+  .btn,
+  .btn-ringan,
+  .nav-item,
+  .action-card,
+  .sidebar-menu-heading,
+  .video-tag {
+    display: none !important;
+  }
+
+  .content,
+  main {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .card {
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 0 10px !important;
+    background: #fff !important;
+    page-break-inside: auto;
+  }
+
+  .card h1,
+  .card h2 {
+    font-size: 12pt !important;
+    margin: 0 0 6px !important;
+    color: #000 !important;
+  }
+
+  .ringkas,
+  .score-summary,
+  .ringkas-item,
+  .score-item {
+    border: 1px solid #000 !important;
+    background: #fff !important;
+    color: #000 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .table-wrap {
+    overflow: visible !important;
+  }
+
+  table {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-collapse: collapse !important;
+    font-size: 9.5pt !important;
+    color: #000 !important;
+  }
+
+  table th,
+  table td {
+    border: 1px solid #000 !important;
+    padding: 4px 6px !important;
+    color: #000 !important;
+    background: #fff !important;
+    vertical-align: top;
+  }
+
+  table th {
+    background: #E5E7EB !important;
+    font-weight: 700 !important;
+    text-transform: none !important;
+  }
+
+  table tr {
+    page-break-inside: avoid;
+  }
+
+  .pill,
+  .badge,
+  .n,
+  .n.green,
+  .n.blue,
+  .n.orange,
+  .n.red,
+  .n.abu {
+    color: #000 !important;
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    font-weight: inherit !important;
+  }
+
+  /* ---------- Kop surat ---------- */
+  .cetak-kop {
+    display: flex !important;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 4px;
+  }
+
+  .cetak-logo {
+    width: 68px;
+    height: 68px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .cetak-identitas {
+    flex: 1;
+    text-align: center;
+    line-height: 1.25;
+  }
+
+  .cetak-instansi {
+    margin: 0;
+    font-size: 11pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .cetak-sekolah {
+    margin: 0;
+    font-size: 15pt;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .cetak-alamat {
+    margin: 2px 0 0;
+    font-size: 9pt;
+  }
+
+  .cetak-garis-ganda {
+    display: block !important;
+    height: 0;
+    border-top: 3px solid #000;
+    border-bottom: 1px solid #000;
+    margin: 4px 0 0 0;
+    padding-top: 2px;
+  }
+
+  .cetak-kepala {
+    display: block !important;
+    text-align: center;
+    margin: 12px 0 14px;
+  }
+
+  .cetak-judul {
+    margin: 0;
+    font-size: 12.5pt;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-decoration: underline;
+    letter-spacing: 0.02em;
+  }
+
+  .cetak-sub {
+    margin: 3px 0 0;
+    font-size: 10pt;
+  }
+
+  /* ---------- Tanda tangan ---------- */
+  .cetak-ttd {
+    display: flex !important;
+    justify-content: space-between;
+    gap: 24px;
+    margin-top: 26px;
+    page-break-inside: avoid;
+  }
+
+  .cetak-ttd-kolom {
+    width: 45%;
+    text-align: center;
+    font-size: 10pt;
+    line-height: 1.4;
+  }
+
+  .cetak-ttd-kolom p {
+    margin: 0;
+  }
+
+  .cetak-ruang-ttd {
+    height: 62px;
+  }
+
+  .cetak-nama-ttd {
+    font-weight: 700;
+    text-decoration: underline;
+  }
+
+  .cetak-catatan {
+    display: block !important;
+    margin-top: 14px;
+    font-size: 7.5pt;
+    color: #555;
+    text-align: right;
+  }
+}

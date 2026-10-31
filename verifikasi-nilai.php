@@ -85,6 +85,8 @@ if ($conn) {
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
+<?php require_once __DIR__ . '/ui-cetak.php'; padi_cetak_siap('VERIFIKASI NILAI SISWA', 'Dicetak: ' . date('d/m/Y'), ['orientasi' => 'landscape']); ?>
+
   <header class="topbar">
     <a href="rekap-penilaian.php" aria-label="Kembali">&#8592;</a>
     <h1>Verifikasi Nilai Siswa</h1>
@@ -141,5 +143,6 @@ if ($conn) {
       </form>
     <?php endforeach; ?>
   <?php endif; ?>
+<?php padi_cetak_ttd(); ?>
 </body>
 </html>

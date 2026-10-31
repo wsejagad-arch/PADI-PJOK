@@ -147,6 +147,8 @@ function padi_badge($terisi, $teksIsi)
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
+<?php require_once __DIR__ . '/ui-cetak.php'; padi_cetak_siap('PANTAU SISWA TERHUBUNG', 'Kelas: ' . ($filterKelas !== '' ? $filterKelas : 'Semua kelas') . ' · ' . count($tampil) . ' siswa', ['orientasi' => 'landscape']); ?>
+
   <header class="topbar">
     <button class="back-btn" type="button" aria-label="Kembali" onclick="window.location.href='dashboard-guru.php'">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -271,5 +273,6 @@ function padi_badge($terisi, $teksIsi)
       <span>Profil</span>
     </a>
   </nav>
+<?php padi_cetak_ttd(); ?>
 </body>
 </html>

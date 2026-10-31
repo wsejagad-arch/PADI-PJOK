@@ -131,6 +131,8 @@ wajibLoginGuru();
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
+<?php require_once __DIR__ . '/ui-cetak.php'; padi_cetak_siap('PERKEMBANGAN SEMESTER', 'Dicetak: ' . date('d/m/Y'), ['orientasi' => 'landscape']); ?>
+
 
 <header class="topbar">
   <div class="topbar-logo">
@@ -409,5 +411,6 @@ wajibLoginGuru();
     ctx.closePath();
   }
 </script>
+<?php padi_cetak_ttd(); ?>
 </body>
 </html>

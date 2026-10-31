@@ -175,6 +175,8 @@ wajibLoginGuru();
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
+<?php require_once __DIR__ . '/ui-cetak.php'; padi_cetak_siap('REKAP NILAI SISWA', 'Dicetak: ' . date('d/m/Y'), ['orientasi' => 'landscape']); ?>
+
 <header class="topbar">
   <div class="topbar-logo">
     <svg viewBox="0 0 28 28" fill="none"><circle cx="18" cy="5" r="3" fill="#1A56DB"/><path d="M6 24L13 14 11 9 17 5" stroke="#1A56DB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 9L18 12L24 9" stroke="#1A56DB" stroke-width="2.2" stroke-linecap="round"/><path d="M18 12L15 20L19 24" stroke="#1A56DB" stroke-width="2.2" stroke-linecap="round"/><path d="M2 18Q9 14 16 17" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/></svg>
@@ -411,5 +413,6 @@ wajibLoginGuru();
   function filterTab(el,type){document.querySelectorAll('.filter-tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');const cards=document.querySelectorAll('.student-card');cards.forEach(c=>{if(type==='semua'){c.style.display='block';}else{c.style.display=c.dataset.status===type?'block':'none';}});}
   function searchStudents(v){const q=v.toLowerCase();document.querySelectorAll('.student-card').forEach(c=>{c.style.display=c.dataset.name.includes(q)?'block':'none';});}
 </script>
+<?php padi_cetak_ttd(); ?>
 </body>
 </html>

@@ -97,6 +97,59 @@ function padi_angka($val)
 {
     return ($val === null) ? '–' : (string)round($val);
 }
+
+// Ekspor nilai sesuai filter aktif (CSV / Excel).
+$ekspor = strtolower(trim((string)($_GET['ekspor'] ?? '')));
+if ($ekspor === 'csv' || $ekspor === 'xls') {
+    $sufiks = $filterKelas !== '' ? '-' . preg_replace('/[^A-Za-z0-9]/', '', $filterKelas) : '';
+    $namaFile = 'rekap-nilai-pjok-' . date('Ymd-His') . $sufiks;
+    $kepala = ['Nama', 'Kelas', 'Kognitif', 'Afektif', 'Psikomotor', 'Diri/Rekan', 'Rata-rata', 'Predikat', 'Video'];
+
+    $barisEkspor = [];
+    foreach ($students as $s) {
+        $g = getGrade($s['rata']);
+        $barisEkspor[] = [
+            $s['nama'],
+            $s['kelas'],
+            padi_angka($s['kog']),
+            padi_angka($s['afe']),
+            padi_angka($s['psi']),
+            padi_angka($s['diri']),
+            padi_angka($s['rata']),
+            $g[0],
+            $s['video'] !== '' ? 'Ada' : 'Belum',
+        ];
+    }
+
+    if ($ekspor === 'csv') {
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $namaFile . '.csv"');
+        $keluaran = fopen('php://output', 'w');
+        fwrite($keluaran, "\xEF\xBB\xBF");
+        fputcsv($keluaran, $kepala, ';');
+        foreach ($barisEkspor as $baris) fputcsv($keluaran, $baris, ';');
+        fclose($keluaran);
+        exit;
+    }
+
+    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $namaFile . '.xls"');
+    echo "\xEF\xBB\xBF";
+    echo '<html><head><meta charset="utf-8"></head><body>';
+    echo '<table border="1" cellspacing="0" cellpadding="4">';
+    echo '<tr><th colspan="' . count($kepala) . '">REKAP PENILAIAN PJOK</th></tr>';
+    echo '<tr><th colspan="' . count($kepala) . '">Filter: ' . ($filterKelas !== '' ? 'Kelas ' . htmlspecialchars($filterKelas, ENT_QUOTES, 'UTF-8') : 'Semua kelas') . ($cari !== '' ? ' / Nama: ' . htmlspecialchars($cari, ENT_QUOTES, 'UTF-8') : '') . '</th></tr>';
+    echo '<tr>';
+    foreach ($kepala as $k) echo '<th>' . htmlspecialchars($k, ENT_QUOTES, 'UTF-8') . '</th>';
+    echo '</tr>';
+    foreach ($barisEkspor as $baris) {
+        echo '<tr>';
+        foreach ($baris as $sel) echo '<td>' . htmlspecialchars((string)$sel, ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '</tr>';
+    }
+    echo '</table></body></html>';
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -140,6 +193,9 @@ function padi_angka($val)
     .filter label { display: block; font-size: 11px; font-weight: 700; color: var(--text-3); margin-bottom: 4px; }
     .filter input, .filter select { width: 100%; font: inherit; font-size: 13px; padding: 9px 10px; border-radius: var(--radius-sm); background: #fff; }
     .filter-aksi { display: flex; gap: 8px; }
+    .tabel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .tabel-head h2 { margin: 0; }
+    .tabel-aksi { display: flex; gap: 8px; flex-wrap: wrap; }
     .btn { display: inline-flex; align-items: center; justify-content: center; height: 38px; padding: 0 14px; border-radius: var(--radius-sm); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; background: var(--blue); color: #fff; text-decoration: none; }
     .btn-ringan { background: #fff; color: var(--blue); border: 1px solid var(--border); }
 
@@ -165,6 +221,8 @@ function padi_angka($val)
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
+<?php require_once __DIR__ . '/ui-cetak.php'; padi_cetak_siap('REKAP PENILAIAN PJOK', 'Kelas: ' . ($filterKelas !== '' ? $filterKelas : 'Semua kelas') . ' · ' . count($students) . ' siswa', ['orientasi' => 'landscape']); ?>
+
   <header class="topbar">
     <button class="back-btn" type="button" aria-label="Kembali" onclick="window.location.href='dashboard-guru.php'">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -224,7 +282,14 @@ function padi_angka($val)
     </section>
 
     <section class="card">
-      <h2>Tabel Rekap (<?= count($students) ?>)</h2>
+      <div class="tabel-head">
+        <h2>Tabel Rekap (<?= count($students) ?>)</h2>
+        <?php $qsEkspor = http_build_query(array_filter(['kelas' => $filterKelas, 'q' => $cari], function ($v) { return $v !== ''; })); ?>
+        <div class="tabel-aksi">
+          <a class="btn btn-ringan" href="rekap-penilaian.php?<?= htmlspecialchars($qsEkspor !== '' ? $qsEkspor . '&' : '', ENT_QUOTES, 'UTF-8') ?>ekspor=csv">Ekspor CSV</a>
+          <a class="btn btn-ringan" href="rekap-penilaian.php?<?= htmlspecialchars($qsEkspor !== '' ? $qsEkspor . '&' : '', ENT_QUOTES, 'UTF-8') ?>ekspor=xls">Ekspor Excel</a>
+        </div>
+      </div>
       <?php if (!$students): ?>
         <div class="kosong">Tidak ada siswa yang cocok dengan filter.<br>Ubah kelas/nama, atau pastikan siswa sudah bergabung pada sesi.</div>
       <?php else: ?>
@@ -285,5 +350,6 @@ function padi_angka($val)
       <span>Profil</span>
     </a>
   </nav>
+<?php padi_cetak_ttd(); ?>
 </body>
 </html>

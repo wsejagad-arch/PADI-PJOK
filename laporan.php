@@ -32,6 +32,8 @@ require 'koneksi.php';
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
+<?php require_once __DIR__ . '/ui-cetak.php'; padi_cetak_siap('LAPORAN PENILAIAN PJOK', 'Dicetak: ' . date('d/m/Y'), ['orientasi' => 'landscape']); ?>
+
   <header class="topbar">
     <button class="back-btn" onclick="window.location.href='dashboard-guru.php'">
       <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -46,5 +48,6 @@ require 'koneksi.php';
       <button class="btn-primary" onclick="alert('Fitur ekspor akan segera tersedia!')">Unduh Contoh Laporan</button>
     </div>
   </main>
+<?php padi_cetak_ttd(); ?>
 </body>
 </html>
