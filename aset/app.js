@@ -10,6 +10,18 @@
     setupSidebarDesktop(isPc);
   }
 
+  var KUNCI_SIDEBAR = 'padi.sidebar';
+
+  function terapkanSidebar(rapat) {
+    akar.setAttribute('data-sidebar', rapat ? 'compact' : 'normal');
+    var b = document.getElementById('padi-sidebar-toggle');
+    if (!b) return;
+    b.setAttribute('aria-pressed', rapat ? 'true' : 'false');
+    b.title = rapat ? 'Tampilkan menu normal' : 'Rapatkan menu';
+    b.setAttribute('aria-label', b.title);
+    b.textContent = rapat ? '»' : '«';
+  }
+
   function setupSidebarDesktop(isPc) {
     var nav = document.querySelector('nav.bottom-nav, nav.nav-bottom');
     if (!nav) return;
@@ -38,6 +50,23 @@
         }
       });
       nav.appendChild(logoutItem);
+    }
+
+    // Tombol rapat/normal (khusus desktop, tersimpan di localStorage)
+    if (!document.getElementById('padi-sidebar-toggle')) {
+      var toggle = document.createElement('button');
+      toggle.id = 'padi-sidebar-toggle';
+      toggle.type = 'button';
+      toggle.addEventListener('click', function () {
+        var rapat = akar.getAttribute('data-sidebar') !== 'compact';
+        try { localStorage.setItem(KUNCI_SIDEBAR, rapat ? 'compact' : 'normal'); } catch (e) {}
+        terapkanSidebar(rapat);
+      });
+      nav.appendChild(toggle);
+
+      var tersimpan = 'normal';
+      try { tersimpan = localStorage.getItem(KUNCI_SIDEBAR) || 'normal'; } catch (e) {}
+      terapkanSidebar(tersimpan === 'compact');
     }
   }
 
