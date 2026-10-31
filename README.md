@@ -110,7 +110,7 @@ kredensial sudah diisi; bila belum, tombol tampil nonaktif dengan petunjuk.
 GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=xxxx
 GOOGLE_REDIRECT_URI=            # opsional, default https://<host>/oauth-callback.php
-BELAJAR_ID_DOMAIN=belajar.id    # boleh beberapa, pisah koma, dukung *.sch.id
+BELAJAR_ID_DOMAIN=belajar.id,*.belajar.id   # boleh beberapa, pisah koma; mis. juga *.sch.id
 BELAJAR_ID_AUTO_DAFTAR=1        # 1 = akun guru otomatis dibuat saat login pertama
 BELAJAR_ID_HD=                  # opsional, batasi consent ke satu domain
 ```

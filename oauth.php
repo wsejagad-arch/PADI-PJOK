@@ -40,7 +40,7 @@ function padi_oauth_konfig()
         'client_id'     => padi_oauth_env('GOOGLE_CLIENT_ID', ''),
         'client_secret' => padi_oauth_env('GOOGLE_CLIENT_SECRET', ''),
         'redirect_uri'  => padi_oauth_redirect_uri(),
-        'domain'        => padi_oauth_env('BELAJAR_ID_DOMAIN', 'belajar.id'),
+        'domain'        => padi_oauth_env('BELAJAR_ID_DOMAIN', 'belajar.id,*.belajar.id'),
         'hd'            => padi_oauth_env('BELAJAR_ID_HD', ''),
         'auto_daftar'   => padi_oauth_env('BELAJAR_ID_AUTO_DAFTAR', '1'),
     ];

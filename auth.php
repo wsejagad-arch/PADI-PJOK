@@ -975,9 +975,9 @@ function loginGuruBelajarId($conn, array $profil)
         return $out;
     }
 
-    // Batasi domain email (default: belajar.id).
+    // Batasi domain email (default: belajar.id + semua subdomain, mis. guru.sma.belajar.id).
     $domain = substr($email, (int)strpos($email, '@') + 1);
-    $izin = array_filter(array_map('trim', explode(',', strtolower(padi_tenant_env('BELAJAR_ID_DOMAIN', 'belajar.id')))));
+    $izin = array_filter(array_map('trim', explode(',', strtolower(padi_tenant_env('BELAJAR_ID_DOMAIN', 'belajar.id,*.belajar.id')))));
     $cocok = false;
     foreach ($izin as $pola) {
         if ($pola === '') continue;
@@ -1035,7 +1035,7 @@ function loginGuruBelajarId($conn, array $profil)
             $out['message'] = 'Gagal membuat akun guru baru.';
             return $out;
         }
-        $ins->bind_param('sssisss', $namaGuru, $username, $hash, $sid, $email, $sub);
+        $ins->bind_param('sssiss', $namaGuru, $username, $hash, $sid, $email, $sub);
         $ins->execute();
         $baruId = (int)$ins->insert_id;
         $ins->close();
