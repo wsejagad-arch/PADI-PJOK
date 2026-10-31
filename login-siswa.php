@@ -268,6 +268,9 @@ if (isset($_GET['token']) && !empty($_SESSION['siswa_id'])) {
     <div class="form-header">
       <h1 class="form-title">Login Siswa</h1>
       <p class="form-subtitle">Masuk menggunakan Nomor Induk dan token materi dari guru.</p>
+      <?php if (function_exists('padi_sekolah') && (string)padi_sekolah('nama') !== ''): ?>
+        <p class="form-subtitle" style="margin-top:6px;font-weight:700;">Sekolah: <?= htmlspecialchars((string)padi_sekolah('nama'), ENT_QUOTES, 'UTF-8') ?></p>
+      <?php endif; ?>
     </div>
 
     <?php if ($err !== ''): ?>

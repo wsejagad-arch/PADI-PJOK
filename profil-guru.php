@@ -195,6 +195,8 @@ $identitas = [
         <div><span>Nama Guru</span><strong><?= htmlspecialchars($profil['nama'] !== '' ? $profil['nama'] : '-', ENT_QUOTES, 'UTF-8') ?></strong></div>
         <div><span>NIP</span><strong><?= htmlspecialchars($profil['nip'] !== '' ? $profil['nip'] : '-', ENT_QUOTES, 'UTF-8') ?></strong></div>
         <div><span>Username</span><strong><?= htmlspecialchars($profil['username'] !== '' ? $profil['username'] : '-', ENT_QUOTES, 'UTF-8') ?></strong></div>
+        <div><span>Sekolah</span><strong><?= htmlspecialchars((string)padi_sekolah('nama'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+        <div><span>Peran</span><strong><?= !empty($_SESSION['guru_is_super']) ? 'Super-admin' : 'Guru' ?></strong></div>
         <div><span>Akun dibuat</span><strong><?= $profil['created_at'] ? htmlspecialchars(date('d/m/Y', strtotime((string)$profil['created_at'])), ENT_QUOTES, 'UTF-8') : '-' ?></strong></div>
         <div><span>Mata Pelajaran</span><strong>PJOK</strong></div>
       </div>
@@ -244,7 +246,14 @@ $identitas = [
           <div><span><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></span><strong><?= htmlspecialchars((string)$nilai, ENT_QUOTES, 'UTF-8') ?></strong></div>
         <?php endforeach; ?>
       </div>
-      <p class="lead" style="margin-top:10px;">Ubah nilai ini lewat variabel <code>SEKOLAH_*</code> dan <code>GURU_NIP</code> di berkas <code>.env</code> server.</p>
+      <p class="lead" style="margin-top:10px;">
+        Identitas ini tersimpan di data sekolah aktif (multi-tenant).
+        <?php if (!empty($_SESSION['guru_is_super'])): ?>
+          Ubah lewat menu <a href="sekolah-admin.php">Kelola Sekolah</a>.
+        <?php else: ?>
+          Hubungi super-admin sekolah untuk mengubahnya.
+        <?php endif; ?>
+      </p>
     </section>
 
     <section class="card">
