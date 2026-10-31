@@ -167,11 +167,18 @@ function padi_throttle_reset($kunci)
 }
 }
 
-/** Kunci throttle berbasis IP + tujuan (tanpa tabel/berkas tambahan). */
+/**
+ * Kunci throttle berbasis IP klien + tujuan (tanpa tabel/berkas tambahan).
+ * Di belakang Cloudflare Tunnel, REMOTE_ADDR selalu 127.0.0.1, jadi pakai
+ * CF-Connecting-IP agar satu pengguna tidak mengunci seluruh sekolah.
+ */
 if (!function_exists('padi_kunci_ip')) {
 function padi_kunci_ip($tujuan)
 {
-    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'lokal');
+    $ip = trim((string)($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ''));
+    if ($ip === '' || filter_var($ip, FILTER_VALIDATE_IP) === false) {
+        $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'lokal');
+    }
     return $tujuan . ':' . $ip;
 }
 }
