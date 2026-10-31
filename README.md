@@ -151,6 +151,10 @@ Untuk merilis aset baru, cukup ubah berkasnya — `?v=` diambil dari `filemtime`
   Tersedia **Ekspor CSV** dan **Ekspor Excel** yang mengikuti filter aktif.
 - **Data siswa** (`data-siswa.php`) berupa tabel per kelas (No, NIS, Nama, Aksi) dengan filter kelas + nama,
   tombol Tambah Kelas / Import CSV, serta Ekspor & Cetak per kelas.
+- **Laporan pembelajaran** (`laporan.php`) = raport kelas + raport individu dengan filter kelas dan pilihan siswa:
+  ringkasan rata-rata indikator, sebaran predikat, daftar remedial/pengayaan/data belum lengkap, narasi
+  **analisis AI ringan** (aturan kriteria: ≥85 Sangat Baik · 70–84 Baik · 50–69 Cukup · <50 Kurang · tuntas ≥70),
+  rekomendasi tindak lanjut per indikator, Ekspor CSV, dan cetak PDF berkop.
 
 ### Cetak / Simpan PDF
 
