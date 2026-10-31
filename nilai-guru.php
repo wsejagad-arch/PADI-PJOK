@@ -10,8 +10,13 @@ $filterKelas = strtoupper(trim((string)($_GET['kelas'] ?? '')));
 $perKelas = [];
 $kelasList = [];
 if ($conn) {
-    $q = $conn->query("SELECT DISTINCT kelas FROM sesi WHERE kelas <> '' ORDER BY kelas");
+    $sidNilai = padi_sekolah_id();
+    $stmt = $conn->prepare("SELECT DISTINCT kelas FROM sesi WHERE sekolah_id = ? AND kelas <> '' ORDER BY kelas");
+    $stmt->bind_param('i', $sidNilai);
+    $stmt->execute();
+    $q = $stmt->get_result();
     if ($q) while ($r = $q->fetch_assoc()) $kelasList[] = (string)$r['kelas'];
+    $stmt->close();
 
     $sql = "SELECT p.id, s.kelas,
                    (SELECT nilai_total FROM penilaian_kognitif WHERE siswa_id = p.id ORDER BY id DESC LIMIT 1) AS kog,
@@ -20,9 +25,14 @@ if ($conn) {
                    (SELECT nilai_rubrik FROM penilaian_rekan WHERE penilai_id = p.id ORDER BY id DESC LIMIT 1) AS diri
             FROM siswa p
             JOIN sesi s ON s.id = p.sesi_id
-            WHERE s.status = 'aktif'";
-    if ($filterKelas !== '') $sql .= " AND s.kelas = '" . $conn->real_escape_string($filterKelas) . "'";
-    $q = $conn->query($sql);
+            WHERE s.sekolah_id = ? AND s.status = 'aktif'";
+    $tipeNilai = 'i';
+    $nilaiNilai = [$sidNilai];
+    if ($filterKelas !== '') { $sql .= " AND s.kelas = ?"; $tipeNilai .= 's'; $nilaiNilai[] = $filterKelas; }
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param($tipeNilai, ...$nilaiNilai);
+    $stmt->execute();
+    $q = $stmt->get_result();
     if ($q) {
         while ($row = $q->fetch_assoc()) {
             $k = (string)$row['kelas'];
@@ -46,6 +56,7 @@ if ($conn) {
             }
         }
     }
+    $stmt->close();
 }
 ksort($perKelas);
 

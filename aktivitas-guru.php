@@ -11,8 +11,13 @@ $kelasList = [];
 $sesiList = [];
 $ringkas = ['aktif' => 0, 'selesai' => 0, 'siswa' => 0, 'hari_ini' => 0];
 if ($conn) {
-    $q = $conn->query("SELECT DISTINCT kelas FROM sesi WHERE kelas <> '' ORDER BY kelas");
+    $sid = padi_sekolah_id();
+    $stmt = $conn->prepare("SELECT DISTINCT kelas FROM sesi WHERE sekolah_id = ? AND kelas <> '' ORDER BY kelas");
+    $stmt->bind_param('i', $sid);
+    $stmt->execute();
+    $q = $stmt->get_result();
     if ($q) while ($r = $q->fetch_assoc()) $kelasList[] = (string)$r['kelas'];
+    $stmt->close();
 
     $sql = "SELECT s.id, s.token, s.kelas, s.materi, s.status, s.created_at,
                    (SELECT COUNT(*) FROM siswa p WHERE p.sesi_id = s.id) AS jumlah_siswa,
@@ -20,13 +25,18 @@ if ($conn) {
                    (SELECT COUNT(*) FROM siswa p JOIN penilaian_psikomotor ps ON ps.siswa_id = p.id WHERE p.sesi_id = s.id AND ps.video_path IS NOT NULL AND ps.video_path <> '') AS jumlah_video,
                    (SELECT COUNT(*) FROM siswa p JOIN penilaian_afektif af ON af.siswa_id = p.id WHERE p.sesi_id = s.id) AS jumlah_afe
             FROM sesi s";
-    $kondisi = [];
-    if ($filterKelas !== '') $kondisi[] = "s.kelas = '" . $conn->real_escape_string($filterKelas) . "'";
-    if ($filterStatus !== '') $kondisi[] = "s.status = '" . $conn->real_escape_string($filterStatus) . "'";
-    if ($kondisi) $sql .= ' WHERE ' . implode(' AND ', $kondisi);
+    $kondisi = ['s.sekolah_id = ?'];
+    $tipe = 'i';
+    $nilai = [$sid];
+    if ($filterKelas !== '') { $kondisi[] = 's.kelas = ?'; $tipe .= 's'; $nilai[] = $filterKelas; }
+    if ($filterStatus !== '') { $kondisi[] = 's.status = ?'; $tipe .= 's'; $nilai[] = $filterStatus; }
+    $sql .= ' WHERE ' . implode(' AND ', $kondisi);
     $sql .= ' ORDER BY s.created_at DESC, s.id DESC LIMIT 100';
 
-    $q = $conn->query($sql);
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param($tipe, ...$nilai);
+    $stmt->execute();
+    $q = $stmt->get_result();
     if ($q) {
         while ($row = $q->fetch_assoc()) {
             $sesiList[] = $row;
@@ -35,6 +45,7 @@ if ($conn) {
             if (date('Y-m-d', strtotime((string)$row['created_at'])) === date('Y-m-d')) $ringkas['hari_ini']++;
         }
     }
+    $stmt->close();
 }
 
 if (!function_exists('aktivitas_tanggal')) {

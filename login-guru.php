@@ -2,6 +2,7 @@
 // login-guru.php — Halaman Login Khusus Guru (Anti-Slop, Clean, Responsive)
 require_once __DIR__ . '/koneksi.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/oauth.php';
 
 if (empty($conn)) {
     require_once __DIR__ . '/pesan-db.php';
@@ -152,6 +153,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       color: var(--padi-blue);
     }
 
+    .oauth-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 18px 0 14px;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--padi-slate-400);
+    }
+    .oauth-divider::before,
+    .oauth-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--padi-slate-200, #E2E8F0);
+    }
+    .btn-oauth {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 46px;
+      padding: 0 14px;
+      border-radius: 10px;
+      border: 2px solid #1E293B;
+      background: #fff;
+      color: #0F172A;
+      font: inherit;
+      font-size: 13.5px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .btn-oauth svg { width: 18px; height: 18px; flex: 0 0 auto; }
+    .btn-oauth:hover { background: #F1F5F9; }
+    .btn-oauth[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+    .sekolah-nama {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--padi-slate-600, #475569);
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .sekolah-nama span { color: var(--padi-blue, #1A56DB); }
+
     @media (max-width: 480px) {
       .auth-page-wrap {
         padding: 0;
@@ -189,6 +238,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <h1 class="form-title">Login Guru</h1>
       <p class="form-subtitle">Kelola penilaian autentik, materi pembelajaran, dan rekap siswa.</p>
     </div>
+
+    <?php
+      $namaSekolahAktif = function_exists('padi_sekolah') ? (string)padi_sekolah('nama') : '';
+      $oauthSiap = function_exists('padi_oauth_siap') ? padi_oauth_siap() : false;
+    ?>
+    <?php if ($namaSekolahAktif !== ''): ?>
+      <p class="sekolah-nama">Sekolah: <span><?= htmlspecialchars($namaSekolahAktif, ENT_QUOTES, 'UTF-8') ?></span></p>
+    <?php endif; ?>
 
     <?php if ($err !== ''): ?>
       <div class="padi-alert padi-alert-danger" role="alert">
@@ -246,6 +303,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </svg>
       </button>
     </form>
+
+    <div class="oauth-divider">atau</div>
+    <?php if ($oauthSiap): ?>
+      <a class="btn-oauth" href="oauth-belajar.php">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 11.1H12v3.2h5.35c-.25 1.5-1.75 4.4-5.35 4.4-3.22 0-5.85-2.67-5.85-5.95S8.78 6.8 12 6.8c1.83 0 3.06.78 3.76 1.45l2.57-2.48C16.74 4.2 14.6 3.3 12 3.3 6.98 3.3 2.9 7.38 2.9 12.4s4.08 9.1 9.1 9.1c5.25 0 8.72-3.69 8.72-8.88 0-.6-.06-1.05-.15-1.52z"/></svg>
+        <span>Masuk dengan Belajar.id</span>
+      </a>
+      <p class="sekolah-nama" style="margin-top:8px;font-weight:600;">Gunakan akun belajar.id sekolah Anda.</p>
+    <?php else: ?>
+      <button type="button" class="btn-oauth" aria-disabled="true" title="Aktifkan dengan mengisi GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET di .env">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#94A3B8" d="M21.35 11.1H12v3.2h5.35c-.25 1.5-1.75 4.4-5.35 4.4-3.22 0-5.85-2.67-5.85-5.95S8.78 6.8 12 6.8c1.83 0 3.06.78 3.76 1.45l2.57-2.48C16.74 4.2 14.6 3.3 12 3.3 6.98 3.3 2.9 7.38 2.9 12.4s4.08 9.1 9.1 9.1c5.25 0 8.72-3.69 8.72-8.88 0-.6-.06-1.05-.15-1.52z"/></svg>
+        <span>Masuk dengan Belajar.id</span>
+      </button>
+      <p class="sekolah-nama" style="margin-top:8px;font-weight:600;">Belum aktif — isi GOOGLE_CLIENT_ID &amp; GOOGLE_CLIENT_SECRET di .env.</p>
+    <?php endif; ?>
 
     <div class="card-footer-nav">
       <a href="index.php?tab=siswa">&larr; Masuk sebagai Siswa</a>

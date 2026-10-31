@@ -143,22 +143,36 @@ $filterKelas = strtoupper(trim((string)($_GET['kelas'] ?? '')));
 $idSiswa = (int)($_GET['siswa'] ?? 0);
 
 // Daftar kelas
+$sidLaporan = $conn ? padi_sekolah_id() : 1;
 $kelasList = [];
 if ($conn) {
-    $q = $conn->query("SELECT DISTINCT kelas FROM sesi WHERE kelas <> '' ORDER BY kelas");
+    $stmt = $conn->prepare("SELECT DISTINCT kelas FROM sesi WHERE sekolah_id = ? AND kelas <> '' ORDER BY kelas");
+    $stmt->bind_param('i', $sidLaporan);
+    $stmt->execute();
+    $q = $stmt->get_result();
     if ($q) while ($r = $q->fetch_assoc()) $kelasList[] = (string)$r['kelas'];
-    $q = $conn->query("SELECT nama_kelas FROM master_kelas ORDER BY nama_kelas");
+    $stmt->close();
+
+    $stmt = $conn->prepare("SELECT nama_kelas FROM master_kelas WHERE sekolah_id = ? ORDER BY nama_kelas");
+    $stmt->bind_param('i', $sidLaporan);
+    $stmt->execute();
+    $q = $stmt->get_result();
     if ($q) while ($r = $q->fetch_assoc()) $kelasList[] = (string)$r['nama_kelas'];
+    $stmt->close();
     $kelasList = array_values(array_unique(array_filter($kelasList)));
     sort($kelasList);
 }
 if ($filterKelas === '' && $kelasList) {
     // Default: kelas dari sesi terbaru (biasanya sudah ada siswa), lalu kelas pertama.
     $filterKelas = $kelasList[0];
-    $qBaru = $conn->query("SELECT kelas FROM sesi WHERE kelas <> '' ORDER BY id DESC LIMIT 1");
+    $stmt = $conn->prepare("SELECT kelas FROM sesi WHERE sekolah_id = ? AND kelas <> '' ORDER BY id DESC LIMIT 1");
+    $stmt->bind_param('i', $sidLaporan);
+    $stmt->execute();
+    $qBaru = $stmt->get_result();
     if ($qBaru && ($rBaru = $qBaru->fetch_assoc()) && trim((string)$rBaru['kelas']) !== '') {
         $filterKelas = strtoupper((string)$rBaru['kelas']);
     }
+    $stmt->close();
 }
 
 // ---------- Data kelas ----------
@@ -166,15 +180,15 @@ $siswa = [];
 if ($conn && $filterKelas !== '') {
     // Utamakan sesi aktif; bila tidak ada, pakai sesi terbaru kelas tersebut.
     $idSesi = [];
-    $stmt = $conn->prepare("SELECT id FROM sesi WHERE kelas = ? AND status = 'aktif' ORDER BY id DESC");
-    $stmt->bind_param('s', $filterKelas);
+    $stmt = $conn->prepare("SELECT id FROM sesi WHERE sekolah_id = ? AND kelas = ? AND status = 'aktif' ORDER BY id DESC");
+    $stmt->bind_param('is', $sidLaporan, $filterKelas);
     $stmt->execute();
     $res = $stmt->get_result();
     while ($res && ($r = $res->fetch_assoc())) $idSesi[] = (int)$r['id'];
     $stmt->close();
     if (!$idSesi) {
-        $stmt = $conn->prepare("SELECT id FROM sesi WHERE kelas = ? ORDER BY id DESC LIMIT 1");
-        $stmt->bind_param('s', $filterKelas);
+        $stmt = $conn->prepare("SELECT id FROM sesi WHERE sekolah_id = ? AND kelas = ? ORDER BY id DESC LIMIT 1");
+        $stmt->bind_param('is', $sidLaporan, $filterKelas);
         $stmt->execute();
         $res = $stmt->get_result();
         if ($res && ($r = $res->fetch_assoc())) $idSesi[] = (int)$r['id'];

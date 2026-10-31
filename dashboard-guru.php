@@ -9,67 +9,62 @@ $kog_pct = 0; $psi_pct = 0; $afe_pct = 0; $diri_pct = 0; $rekan_pct = 0;
 $vid_cek = 0; $feed_belum = 0; $lap_siap = 0;
 
 if ($conn) {
-    $res = $conn->query("SELECT COUNT(DISTINCT materi) AS c FROM sesi WHERE status='aktif'");
-    if($res) $materi_aktif = $res->fetch_assoc()["c"];
-    
-    $res = $conn->query("SELECT COUNT(*) AS c FROM sesi WHERE DATE(created_at) = CURDATE()");
-    if($res) $sesi_hari_ini = $res->fetch_assoc()["c"];
-    
-    $res = $conn->query("SELECT COUNT(*) AS c FROM sesi WHERE status='aktif'");
-    if($res && $res->num_rows > 0) {
-        $sesi_res = $conn->query("SELECT * FROM sesi WHERE status='aktif' ORDER BY created_at DESC LIMIT 1");
-        if($sesi_res && $row = $sesi_res->fetch_assoc()) {
+    $sid = padi_sekolah_id();
+
+    // Pembantu: satu nilai dari query berparameter (semua dibatasi sekolah aktif).
+    $satu = function ($sql, $tipe, $nilai) use ($conn) {
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) return 0;
+        if ($tipe !== '') $stmt->bind_param($tipe, ...$nilai);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $val = ($res && ($row = $res->fetch_row())) ? $row[0] : 0;
+        $stmt->close();
+        return $val;
+    };
+
+    $materi_aktif = $satu("SELECT COUNT(DISTINCT materi) FROM sesi WHERE sekolah_id = ? AND status='aktif'", 'i', [$sid]);
+    $sesi_hari_ini = $satu("SELECT COUNT(*) FROM sesi WHERE sekolah_id = ? AND DATE(created_at) = CURDATE()", 'i', [$sid]);
+
+    $sesiTerakhir = $satu("SELECT COUNT(*) FROM sesi WHERE sekolah_id = ? AND status='aktif'", 'i', [$sid]);
+    if ($sesiTerakhir > 0) {
+        $stmt = $conn->prepare("SELECT id, materi, kelas, token FROM sesi WHERE sekolah_id = ? AND status='aktif' ORDER BY created_at DESC LIMIT 1");
+        $stmt->bind_param('i', $sid);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($row) {
             $sesi_aktif = true;
             $sesi_judul = $row["materi"];
             $sesi_kelas = $row["kelas"];
             $sesi_token = $row["token"];
-            
-            $res = $conn->query("SELECT COUNT(*) AS c FROM siswa WHERE sesi_id=".$row["id"]);
-            if($res) $sesi_siswa = $res->fetch_assoc()["c"];
-            
-            $res = $conn->query("SELECT COUNT(*) AS c FROM penilaian_kognitif k JOIN siswa s ON k.siswa_id=s.id WHERE s.sesi_id=".$row["id"]);
-            if($res) $sesi_kog = $res->fetch_assoc()["c"];
-            
-            $res = $conn->query("SELECT COUNT(*) AS c FROM penilaian_psikomotor p JOIN siswa s ON p.siswa_id=s.id WHERE s.sesi_id=".$row["id"]." AND video_path IS NOT NULL");
-            if($res) $sesi_vid = $res->fetch_assoc()["c"];
+
+            $sesi_siswa = $satu("SELECT COUNT(*) FROM siswa WHERE sesi_id = ?", 'i', [$row["id"]]);
+            $sesi_kog = $satu("SELECT COUNT(*) FROM penilaian_kognitif k JOIN siswa s ON k.siswa_id = s.id WHERE s.sesi_id = ?", 'i', [$row["id"]]);
+            $sesi_vid = $satu("SELECT COUNT(*) FROM penilaian_psikomotor p JOIN siswa s ON p.siswa_id = s.id WHERE s.sesi_id = ? AND p.video_path IS NOT NULL", 'i', [$row["id"]]);
         }
     }
-    
-    $res = $conn->query("SELECT COUNT(*) AS c FROM siswa");
-    $tot_siswa = ($res) ? $res->fetch_assoc()["c"] : 0;
-    
-    $res = $conn->query("SELECT COUNT(*) AS c FROM siswa s JOIN sesi ON s.sesi_id = sesi.id WHERE sesi.status='aktif'");
-    if($res) $siswa_terhubung = $res->fetch_assoc()["c"];
-    
-    if($tot_siswa > 0) {
-        $r = $conn->query("SELECT COUNT(DISTINCT siswa_id) AS c FROM penilaian_kognitif");
-        $kog = $r ? $r->fetch_assoc()["c"] : 0;
-        
-        $r = $conn->query("SELECT COUNT(DISTINCT siswa_id) AS c FROM penilaian_psikomotor WHERE video_path IS NOT NULL");
-        $psi = $r ? $r->fetch_assoc()["c"] : 0;
-        
-        $r = $conn->query("SELECT COUNT(DISTINCT siswa_id) AS c FROM penilaian_afektif");
-        $afe = $r ? $r->fetch_assoc()["c"] : 0;
-        
-        $r = $conn->query("SELECT COUNT(DISTINCT penilai_id) AS c FROM penilaian_rekan");
-        $rek = $r ? $r->fetch_assoc()["c"] : 0;
-        
+
+    $tot_siswa = $satu("SELECT COUNT(*) FROM siswa s JOIN sesi se ON s.sesi_id = se.id WHERE se.sekolah_id = ?", 'i', [$sid]);
+    $siswa_terhubung = $satu("SELECT COUNT(*) FROM siswa s JOIN sesi se ON s.sesi_id = se.id WHERE se.sekolah_id = ? AND se.status='aktif'", 'i', [$sid]);
+
+    if ($tot_siswa > 0) {
+        $kog = $satu("SELECT COUNT(DISTINCT k.siswa_id) FROM penilaian_kognitif k JOIN siswa s ON k.siswa_id = s.id JOIN sesi se ON s.sesi_id = se.id WHERE se.sekolah_id = ?", 'i', [$sid]);
+        $psi = $satu("SELECT COUNT(DISTINCT p.siswa_id) FROM penilaian_psikomotor p JOIN siswa s ON p.siswa_id = s.id JOIN sesi se ON s.sesi_id = se.id WHERE se.sekolah_id = ? AND p.video_path IS NOT NULL", 'i', [$sid]);
+        $afe = $satu("SELECT COUNT(DISTINCT a.siswa_id) FROM penilaian_afektif a JOIN siswa s ON a.siswa_id = s.id JOIN sesi se ON s.sesi_id = se.id WHERE se.sekolah_id = ?", 'i', [$sid]);
+        $rek = $satu("SELECT COUNT(DISTINCT r.penilai_id) FROM penilaian_rekan r JOIN siswa s ON r.penilai_id = s.id JOIN sesi se ON s.sesi_id = se.id WHERE se.sekolah_id = ?", 'i', [$sid]);
+
         $kog_pct = round(($kog/$tot_siswa)*100);
         $psi_pct = round(($psi/$tot_siswa)*100);
         $afe_pct = round(($afe/$tot_siswa)*100);
         $rekan_pct = round(($rek/$tot_siswa)*100);
-        
+
         $penilaian_selesai_pct = round((($kog+$psi+$afe+$rek)/(4*$tot_siswa))*100);
     }
-    
-    $r = $conn->query("SELECT COUNT(*) AS c FROM penilaian_psikomotor WHERE video_path IS NOT NULL AND (nilai_rubrik = 0 OR nilai_rubrik IS NULL)");
-    if($r) $vid_cek = $r->fetch_assoc()["c"];
-    
-    $r = $conn->query("SELECT COUNT(*) AS c FROM penilaian_psikomotor WHERE video_path IS NOT NULL AND (feedback_guru IS NULL OR feedback_guru = '')");
-    if($r) $feed_belum = $r->fetch_assoc()["c"];
-    
-    $r = $conn->query("SELECT COUNT(*) AS c FROM sesi WHERE status='selesai'");
-    if($r) $lap_siap = $r->fetch_assoc()["c"];
+
+    $vid_cek = $satu("SELECT COUNT(*) FROM penilaian_psikomotor p JOIN siswa s ON p.siswa_id = s.id JOIN sesi se ON s.sesi_id = se.id WHERE se.sekolah_id = ? AND p.video_path IS NOT NULL AND (p.nilai_rubrik = 0 OR p.nilai_rubrik IS NULL)", 'i', [$sid]);
+    $feed_belum = $satu("SELECT COUNT(*) FROM penilaian_psikomotor p JOIN siswa s ON p.siswa_id = s.id JOIN sesi se ON s.sesi_id = se.id WHERE se.sekolah_id = ? AND p.video_path IS NOT NULL AND (p.feedback_guru IS NULL OR p.feedback_guru = '')", 'i', [$sid]);
+    $lap_siap = $satu("SELECT COUNT(*) FROM sesi WHERE sekolah_id = ? AND status='selesai'", 'i', [$sid]);
 }
 
 $notifs = [];

@@ -3,15 +3,19 @@ require_once 'auth.php';
 wajibLoginGuru();
 require 'koneksi.php';
 
-// Ambil semua sesi aktif dari database
-$sql = "SELECT * FROM sesi WHERE status='aktif' ORDER BY created_at DESC";
-$result = $conn->query($sql);
+// Ambil semua sesi aktif dari database (sekolah aktif saja)
+$sid = padi_sekolah_id();
+$stmt = $conn->prepare("SELECT * FROM sesi WHERE sekolah_id = ? AND status='aktif' ORDER BY created_at DESC");
+$stmt->bind_param('i', $sid);
+$stmt->execute();
+$result = $stmt->get_result();
 $sesi_aktif = [];
 if ($result && $result->num_rows > 0) {
     while($row = $result->fetch_assoc()) {
         $sesi_aktif[] = $row;
     }
 }
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="id">

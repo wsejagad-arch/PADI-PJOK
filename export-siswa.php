@@ -31,8 +31,9 @@ if ($action === 'export') {
     $output = fopen('php://output', 'w');
     fputcsv($output, ['Nama Lengkap', 'NIS', 'Kelas']);
     
-    $stmt = $conn->prepare("SELECT nama, nis, kelas FROM master_siswa WHERE kelas = ? ORDER BY nama ASC");
-    $stmt->bind_param("s", $kelas);
+    $stmt = $conn->prepare("SELECT nama, nis, kelas FROM master_siswa WHERE sekolah_id = ? AND kelas = ? ORDER BY nama ASC");
+    $sid = padi_sekolah_id();
+    $stmt->bind_param("is", $sid, $kelas);
     $stmt->execute();
     $res = $stmt->get_result();
     

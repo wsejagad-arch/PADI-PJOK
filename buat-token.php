@@ -26,10 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 
+    $sid = padi_sekolah_id();
     $token = $token_kustom !== '' ? $token_kustom : padi_token_acak(8);
     for ($i = 0; $i < 5; $i++) {
-        $cek = $conn->prepare("SELECT id FROM sesi WHERE token = ? LIMIT 1");
-        $cek->bind_param("s", $token);
+        $cek = $conn->prepare("SELECT id FROM sesi WHERE sekolah_id = ? AND token = ? LIMIT 1");
+        $cek->bind_param("is", $sid, $token);
         $cek->execute();
         $sudah = $cek->get_result()->num_rows > 0;
         $cek->close();
@@ -41,8 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $token = padi_token_acak(8);
     }
 
-    $stmt = $conn->prepare("INSERT INTO sesi (token, kelas, materi) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $token, $kelas, $materi);
+    $stmt = $conn->prepare("INSERT INTO sesi (sekolah_id, token, kelas, materi) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("isss", $sid, $token, $kelas, $materi);
 
     if ($stmt->execute()) {
         echo json_encode(['success' => true, 'token' => $token]);

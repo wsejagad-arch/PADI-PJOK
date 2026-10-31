@@ -9,8 +9,9 @@ if (!$kelas) {
 }
 
 $siswa_list = [];
-$stmt = $conn->prepare("SELECT nama, nis FROM master_siswa WHERE kelas = ? ORDER BY nama ASC");
-$stmt->bind_param("s", $kelas);
+$stmt = $conn->prepare("SELECT nama, nis FROM master_siswa WHERE sekolah_id = ? AND kelas = ? ORDER BY nama ASC");
+$sidCetak = padi_sekolah_id();
+$stmt->bind_param("is", $sidCetak, $kelas);
 $stmt->execute();
 $res = $stmt->get_result();
 while($row = $res->fetch_assoc()) {

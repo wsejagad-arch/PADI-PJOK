@@ -545,10 +545,11 @@ function normalisasiNis($nis)
  */
 function ambilSesiAktifKelas($conn, $kelas)
 {
+    $sid = function_exists('padi_sekolah_id') ? padi_sekolah_id() : 1;
     $stmt = $conn->prepare("SELECT id, token, materi, kelas FROM sesi
-                            WHERE kelas = ? AND status = 'aktif'
+                            WHERE sekolah_id = ? AND kelas = ? AND status = 'aktif'
                             ORDER BY created_at DESC LIMIT 1");
-    $stmt->bind_param("s", $kelas);
+    $stmt->bind_param("is", $sid, $kelas);
     $stmt->execute();
     $res = $stmt->get_result();
     $row = $res->num_rows > 0 ? $res->fetch_assoc() : null;
@@ -613,11 +614,13 @@ function loginSiswa($conn, $nis, $password)
         return $hasil;
     }
 
-    // Cari siswa berdasarkan nomor induk
-    $stmt = $conn->prepare("SELECT id, nama, nis, kelas, password FROM master_siswa
-                            WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(nis,''),' ',''),'-',''),'.',''),'/','')) = ?
+    // Cari siswa berdasarkan nomor induk (dibatasi per sekolah)
+    $sid_sekolah = function_exists('padi_sekolah_id') ? padi_sekolah_id() : 1;
+    $stmt = $conn->prepare("SELECT id, nama, nis, kelas, password, sekolah_id FROM master_siswa
+                            WHERE sekolah_id = ?
+                              AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(nis,''),' ',''),'-',''),'.',''),'/','')) = ?
                             ORDER BY id ASC LIMIT 1");
-    $stmt->bind_param("s", $nis_bersih);
+    $stmt->bind_param("is", $sid_sekolah, $nis_bersih);
     $stmt->execute();
     $res = $stmt->get_result();
     if (!$res || $res->num_rows === 0) {
@@ -669,6 +672,7 @@ function loginSiswa($conn, $nis, $password)
     $_SESSION['siswa_nama'] = $nama;
     $_SESSION['siswa_nis']  = $m['nis'];
     $_SESSION['siswa_kelas'] = $kelas;
+    $_SESSION['siswa_sekolah_id'] = (int)($m['sekolah_id'] ?? $sid_sekolah);
 
     $sesi_aktif = ambilSesiAktifKelas($conn, $kelas);
     $hasil['token'] = $sesi_aktif ? (string)$sesi_aktif['token'] : '';
@@ -893,7 +897,7 @@ function loginGuru($conn, $username, $password)
         return $out;
     }
 
-    $stmt = $conn->prepare("SELECT id, nama, username, password, nip FROM guru WHERE LOWER(username) = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT id, nama, username, password, nip, sekolah_id, is_super, status FROM guru WHERE LOWER(username) = ? LIMIT 1");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -911,31 +915,182 @@ function loginGuru($conn, $username, $password)
         $out['message'] = 'Password guru salah.';
         return $out;
     }
+    if (isset($g['status']) && strtolower((string)$g['status']) !== 'aktif') {
+        $out['message'] = 'Akun guru ini sedang dinonaktifkan. Hubungi admin sekolah.';
+        return $out;
+    }
     padi_throttle_reset($kunci_throttle);
 
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_regenerate_id(true);
-    }
-    $_SESSION['guru_id']       = (int)$g['id'];
-    $_SESSION['guru_nama']     = $g['nama'];
-    $_SESSION['guru_nip']      = (string)($g['nip'] ?? '');
-    $_SESSION['guru_username'] = $g['username'];
+    padi_sesi_guru_isi($g);
 
     $out['success'] = true;
     $out['message'] = 'Login berhasil.';
     return $out;
 }
 
+/** Isi sesi guru dari baris tabel `guru` (dipakai login password & Belajar.id). */
+if (!function_exists('padi_sesi_guru_isi')) {
+function padi_sesi_guru_isi(array $g)
+{
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
+    $_SESSION['guru_id']         = (int)$g['id'];
+    $_SESSION['guru_nama']       = (string)$g['nama'];
+    $_SESSION['guru_nip']        = (string)($g['nip'] ?? '');
+    $_SESSION['guru_username']   = (string)$g['username'];
+    $_SESSION['guru_sekolah_id'] = (int)($g['sekolah_id'] ?? 1);
+    $_SESSION['guru_is_super']   = (int)($g['is_super'] ?? 0);
+    if (function_exists('padi_sekolah_aktifkan')) {
+        padi_sekolah_aktifkan((int)$_SESSION['guru_sekolah_id']);
+    }
+}
+}
+
+/**
+ * Login guru memakai akun Belajar.id (Google OAuth / OpenID Connect).
+ * Akun dicari berdasarkan google_sub atau email; bila belum ada dan
+ * BELAJAR_ID_AUTO_DAFTAR=1 (default) akun guru dibuat di sekolah aktif.
+ *
+ * @param array $profil ['sub' => ..., 'email' => ..., 'name' => ...]
+ */
+if (!function_exists('loginGuruBelajarId')) {
+function loginGuruBelajarId($conn, array $profil)
+{
+    $out = ['success' => false, 'message' => ''];
+
+    if (!$conn) {
+        $out['message'] = 'Database tidak terhubung.';
+        return $out;
+    }
+    padi_pastikan_kolom_nip_guru($conn);
+    padi_tenant_bootstrap($conn);
+
+    $email = strtolower(trim((string)($profil['email'] ?? '')));
+    $sub   = trim((string)($profil['sub'] ?? ''));
+    $nama  = trim((string)($profil['name'] ?? ''));
+
+    if ($email === '') {
+        $out['message'] = 'Akun Belajar.id tidak mengirim alamat email. Coba masuk ulang.';
+        return $out;
+    }
+
+    // Batasi domain email (default: belajar.id).
+    $domain = substr($email, (int)strpos($email, '@') + 1);
+    $izin = array_filter(array_map('trim', explode(',', strtolower(padi_tenant_env('BELAJAR_ID_DOMAIN', 'belajar.id')))));
+    $cocok = false;
+    foreach ($izin as $pola) {
+        if ($pola === '') continue;
+        if ($pola[0] === '*') {
+            $akhiran = substr($pola, 1); // "*.sch.id" → ".sch.id"
+            if (substr($domain, -strlen($akhiran)) === $akhiran) $cocok = true;
+        } elseif ($domain === $pola) {
+            $cocok = true;
+        }
+    }
+    if (!$cocok) {
+        $out['message'] = 'Email ' . $email . ' bukan akun Belajar.id yang diizinkan.';
+        return $out;
+    }
+
+    $sid = function_exists('padi_sekolah_id') ? padi_sekolah_id() : 1;
+
+    $stmt = $conn->prepare("SELECT id, nama, username, nip, sekolah_id, is_super, status
+                            FROM guru
+                            WHERE (google_sub = ? AND google_sub <> '') OR (email IS NOT NULL AND email = ?)
+                            ORDER BY (sekolah_id = ?) DESC, id ASC LIMIT 1");
+    $stmt->bind_param('ssi', $sub, $email, $sid);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $g = $res && $res->num_rows > 0 ? $res->fetch_assoc() : null;
+    $stmt->close();
+
+    if ($g && strtolower((string)$g['status']) !== 'aktif') {
+        $out['message'] = 'Akun guru ini sedang dinonaktifkan. Hubungi admin sekolah.';
+        return $out;
+    }
+
+    if (!$g) {
+        $auto = padi_tenant_env('BELAJAR_ID_AUTO_DAFTAR', '1');
+        if ($auto === '0' || strtolower($auto) === 'false') {
+            $out['message'] = 'Akun Belajar.id ini belum terdaftar sebagai guru di sekolah ini. Minta admin sekolah menambahkan akun Anda.';
+            return $out;
+        }
+
+        $namaGuru = $nama !== '' ? $nama : ucfirst(strtok($email, '@'));
+        $username = strtolower(preg_replace('/[^a-z0-9._-]/', '', strtok($email, '@')));
+        // username unik per sekolah
+        $cek = $conn->prepare("SELECT id FROM guru WHERE sekolah_id = ? AND LOWER(username) = ? LIMIT 1");
+        $cek->bind_param('is', $sid, $username);
+        $cek->execute();
+        $sudahAda = $cek->get_result()->num_rows > 0;
+        $cek->close();
+        if ($sudahAda) $username .= '-' . substr(md5($email . microtime()), 0, 4);
+
+        $acak = bin2hex(random_bytes(16));
+        $hash = password_hash($acak, PASSWORD_DEFAULT);
+        $ins = $conn->prepare("INSERT INTO guru (nama, username, password, sekolah_id, email, google_sub, is_super, status)
+                               VALUES (?, ?, ?, ?, ?, ?, 0, 'aktif')");
+        if (!$ins) {
+            $out['message'] = 'Gagal membuat akun guru baru.';
+            return $out;
+        }
+        $ins->bind_param('sssisss', $namaGuru, $username, $hash, $sid, $email, $sub);
+        $ins->execute();
+        $baruId = (int)$ins->insert_id;
+        $ins->close();
+
+        $stmt = $conn->prepare("SELECT id, nama, username, nip, sekolah_id, is_super, status FROM guru WHERE id = ? LIMIT 1");
+        $stmt->bind_param('i', $baruId);
+        $stmt->execute();
+        $g = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+    } else {
+        $upd = $conn->prepare("UPDATE guru SET google_sub = ?, email = ? WHERE id = ?");
+        if ($upd) {
+            $upd->bind_param('ssi', $sub, $email, $g['id']);
+            $upd->execute();
+            $upd->close();
+        }
+    }
+
+    if (!$g) {
+        $out['message'] = 'Akun guru tidak dapat disiapkan.';
+        return $out;
+    }
+
+    padi_sesi_guru_isi($g);
+    $out['success'] = true;
+    $out['message'] = 'Login Belajar.id berhasil.';
+    return $out;
+}
+}
+
 /* ============================================================
    GUARD HALAMAN
-   ============================================================ */
-function wajibLoginGuru()
+   ============================================================ */function wajibLoginGuru()
 {
     padi_mulai_sesi();
     if (empty($_SESSION['guru_id'])) {
         padi_kembali(padi_url_login('guru'), 'Sesi guru belum aktif. Silakan masuk kembali.');
     }
-}
+
+       // Sesi lama (sebelum multi-tenant) belum menyimpan sekolah_id.
+       if (empty($_SESSION['guru_sekolah_id']) && !empty($GLOBALS['conn'])) {
+           $stmt = $GLOBALS['conn']->prepare("SELECT sekolah_id, is_super FROM guru WHERE id = ? LIMIT 1");
+           if ($stmt) {
+               $gid = (int)$_SESSION['guru_id'];
+               $stmt->bind_param('i', $gid);
+               $stmt->execute();
+               $row = $stmt->get_result()->fetch_assoc();
+               $stmt->close();
+               if ($row) {
+                   $_SESSION['guru_sekolah_id'] = (int)($row['sekolah_id'] ?? 1);
+                   $_SESSION['guru_is_super']   = (int)($row['is_super'] ?? 0);
+               }
+           }
+       }
+   }
 
 function wajibLoginSiswa()
 {

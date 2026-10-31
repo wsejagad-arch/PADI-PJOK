@@ -79,15 +79,36 @@ if ($conn && $guruId > 0) {
         }
     }
 
-    $q = $conn->query("SELECT COUNT(*) AS c FROM sesi");
-    if ($q && ($r = $q->fetch_assoc())) $stat['sesi'] = (int)$r['c'];
-    $q = $conn->query("SELECT COUNT(*) AS c FROM sesi WHERE status = 'aktif'");
-    if ($q && ($r = $q->fetch_assoc())) $stat['sesi_aktif'] = (int)$r['c'];
-    $q = $conn->query("SELECT COUNT(*) AS c FROM siswa");
-    if ($q && ($r = $q->fetch_assoc())) $stat['siswa'] = (int)$r['c'];
-    foreach (['penilaian_kognitif', 'penilaian_psikomotor', 'penilaian_afektif', 'penilaian_rekan'] as $tabel) {
-        $q = $conn->query("SELECT COUNT(*) AS c FROM $tabel");
-        if ($q && ($r = $q->fetch_assoc())) $stat['penilaian'] += (int)$r['c'];
+    $sidProfil = padi_sekolah_id();
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM sesi WHERE sekolah_id = ?");
+    $stmt->bind_param('i', $sidProfil);
+    $stmt->execute();
+    if ($r = $stmt->get_result()->fetch_assoc()) $stat['sesi'] = (int)$r['c'];
+    $stmt->close();
+
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM sesi WHERE sekolah_id = ? AND status = 'aktif'");
+    $stmt->bind_param('i', $sidProfil);
+    $stmt->execute();
+    if ($r = $stmt->get_result()->fetch_assoc()) $stat['sesi_aktif'] = (int)$r['c'];
+    $stmt->close();
+
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM siswa p JOIN sesi s ON s.id = p.sesi_id WHERE s.sekolah_id = ?");
+    $stmt->bind_param('i', $sidProfil);
+    $stmt->execute();
+    if ($r = $stmt->get_result()->fetch_assoc()) $stat['siswa'] = (int)$r['c'];
+    $stmt->close();
+
+    foreach (['penilaian_kognitif' => 'siswa_id', 'penilaian_psikomotor' => 'siswa_id', 'penilaian_afektif' => 'siswa_id', 'penilaian_rekan' => 'penilai_id'] as $tabel => $kolom) {
+        $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM $tabel t
+                                JOIN siswa p ON p.id = t.$kolom
+                                JOIN sesi s ON s.id = p.sesi_id
+                                WHERE s.sekolah_id = ?");
+        if ($stmt) {
+            $stmt->bind_param('i', $sidProfil);
+            $stmt->execute();
+            if ($r = $stmt->get_result()->fetch_assoc()) $stat['penilaian'] += (int)$r['c'];
+            $stmt->close();
+        }
     }
 }
 
@@ -261,6 +282,9 @@ $identitas = [
         <a class="btn btn-ringan" href="dashboard-guru.php">Dashboard</a>
         <a class="btn btn-ringan" href="rubrik-platform.php">Rubrik Penilaian</a>
         <a class="btn btn-ringan" href="jadwal-guru.php">Jadwal</a>
+        <?php if (!empty($_SESSION['guru_is_super'])): ?>
+          <a class="btn btn-ringan" href="sekolah-admin.php">Kelola Sekolah</a>
+        <?php endif; ?>
         <a class="btn btn-keluar" href="logout.php" onclick="return confirm('Keluar dari akun guru ini?');">Keluar</a>
       </div>
     </section>

@@ -26,14 +26,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file_csv'])) {
             $file = fopen($fileName, "r");
         }
         
-        $stmt = $conn->prepare("INSERT INTO master_siswa (nama, nis, kelas) VALUES (?, ?, ?)");
+        $sid = padi_sekolah_id();
+        $stmt = $conn->prepare("INSERT INTO master_siswa (sekolah_id, nama, nis, kelas) VALUES (?, ?, ?, ?)");
         
         while (($column = fgetcsv($file, 10000, ",")) !== FALSE) {
             $nama = trim($column[0] ?? '');
             $nis = trim($column[1] ?? '');
             
             if ($nama) {
-                $stmt->bind_param("sss", $nama, $nis, $kelas);
+                $stmt->bind_param("isss", $sid, $nama, $nis, $kelas);
                 $stmt->execute();
             }
         }

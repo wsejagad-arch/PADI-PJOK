@@ -120,5 +120,11 @@ if (!$conn) {
 
 // Set timezone
 date_default_timezone_set(getenv('APP_TZ') ?: 'Asia/Jakarta');
+
+// Multi-tenant: sekolah aktif + migrasi kolom sekolah_id.
+require_once __DIR__ . '/tenant.php';
+if (!empty($conn)) {
+    padi_tenant_bootstrap($conn);
+}
 ?>
 

@@ -53,11 +53,12 @@ function padi_simpan_jadwal($conn, $kelas, $hari, $mulai, $selesai, $materi, $ca
         return 'Jam selesai harus setelah jam mulai.';
     }
 
-    $stmt = $conn->prepare("INSERT INTO jadwal (kelas, hari, jam_mulai, jam_selesai, materi, catatan)
-                            VALUES (?, ?, ?, ?, ?, ?)
+    $sidJadwal = padi_sekolah_id();
+    $stmt = $conn->prepare("INSERT INTO jadwal (sekolah_id, kelas, hari, jam_mulai, jam_selesai, materi, catatan)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
                             ON DUPLICATE KEY UPDATE materi = VALUES(materi), jam_selesai = VALUES(jam_selesai), catatan = VALUES(catatan)");
     if (!$stmt) return 'Gagal menyiapkan query.';
-    $stmt->bind_param('sissss', $kelas, $hari, $mulai, $selesai, $materi, $catatan);
+    $stmt->bind_param('isissss', $sidJadwal, $kelas, $hari, $mulai, $selesai, $materi, $catatan);
     $ok = $stmt->execute();
     $stmt->close();
     return $ok ? '' : 'Gagal menyimpan jadwal.';
@@ -128,8 +129,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($aksi === 'hapus') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
-            $stmt = $conn->prepare("DELETE FROM jadwal WHERE id = ?");
-            $stmt->bind_param('i', $id);
+            $stmt = $conn->prepare("DELETE FROM jadwal WHERE id = ? AND sekolah_id = ?");
+            $stmt->bind_param('ii', $id, padi_sekolah_id());
             $stmt->execute();
             $stmt->close();
             $pesan = 'Jadwal dihapus.';
@@ -137,8 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($aksi === 'kosongkan') {
         $kelas = strtoupper(trim((string)($_POST['kelas'] ?? '')));
         if ($kelas !== '') {
-            $stmt = $conn->prepare("DELETE FROM jadwal WHERE kelas = ?");
-            $stmt->bind_param('s', $kelas);
+            $stmt = $conn->prepare("DELETE FROM jadwal WHERE kelas = ? AND sekolah_id = ?");
+            $stmt->bind_param('si', $kelas, padi_sekolah_id());
             $stmt->execute();
             $hapus = $stmt->affected_rows;
             $stmt->close();
@@ -148,15 +149,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Daftar kelas untuk filter & form
+$sidJadwal = padi_sekolah_id();
 $daftarKelas = [];
 if ($conn) {
-    $q = $conn->query("SELECT nama_kelas FROM master_kelas ORDER BY nama_kelas");
-    if ($q) while ($r = $q->fetch_assoc()) $daftarKelas[] = (string)$r['nama_kelas'];
+    $stmtKelas = $conn->prepare("SELECT nama_kelas FROM master_kelas WHERE sekolah_id = ? ORDER BY nama_kelas");
+    if ($stmtKelas) {
+        $stmtKelas->bind_param('i', $sidJadwal);
+        $stmtKelas->execute();
+        $q = $stmtKelas->get_result();
+        if ($q) while ($r = $q->fetch_assoc()) $daftarKelas[] = (string)$r['nama_kelas'];
+        $stmtKelas->close();
+    }
 }
 require_once 'pesan-db.php';
 if ($conn) {
-    $q = $conn->query("SELECT DISTINCT kelas FROM sesi ORDER BY kelas");
-    if ($q) while ($r = $q->fetch_assoc()) $daftarKelas[] = (string)$r['kelas'];
+    $stmtSesi = $conn->prepare("SELECT DISTINCT kelas FROM sesi WHERE sekolah_id = ? ORDER BY kelas");
+    if ($stmtSesi) {
+        $stmtSesi->bind_param('i', $sidJadwal);
+        $stmtSesi->execute();
+        $q = $stmtSesi->get_result();
+        if ($q) while ($r = $q->fetch_assoc()) $daftarKelas[] = (string)$r['kelas'];
+        $stmtSesi->close();
+    }
 }
 $daftarKelas = array_values(array_unique(array_filter($daftarKelas)));
 sort($daftarKelas);
@@ -165,13 +179,17 @@ $filterKelas = strtoupper(trim((string)($_GET['kelas'] ?? '')));
 $baris = [];
 if ($conn) {
     if ($filterKelas !== '') {
-        $stmt = $conn->prepare("SELECT id, kelas, hari, jam_mulai, jam_selesai, materi, catatan FROM jadwal WHERE kelas = ? ORDER BY hari, jam_mulai");
-        $stmt->bind_param('s', $filterKelas);
+        $stmt = $conn->prepare("SELECT id, kelas, hari, jam_mulai, jam_selesai, materi, catatan FROM jadwal WHERE sekolah_id = ? AND kelas = ? ORDER BY hari, jam_mulai");
+        $stmt->bind_param('is', $sidJadwal, $filterKelas);
         $stmt->execute();
         $res = $stmt->get_result();
         $stmt->close();
     } else {
-        $res = $conn->query("SELECT id, kelas, hari, jam_mulai, jam_selesai, materi, catatan FROM jadwal ORDER BY kelas, hari, jam_mulai");
+        $stmt = $conn->prepare("SELECT id, kelas, hari, jam_mulai, jam_selesai, materi, catatan FROM jadwal WHERE sekolah_id = ? ORDER BY kelas, hari, jam_mulai");
+        $stmt->bind_param('i', $sidJadwal);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $stmt->close();
     }
     if ($res) while ($r = $res->fetch_assoc()) $baris[] = $r;
 }

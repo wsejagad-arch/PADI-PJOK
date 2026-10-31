@@ -26,9 +26,9 @@ if ($conn) {
             FROM siswa p
             JOIN sesi s ON s.id = p.sesi_id";
 
-    $kondisi = [];
-    $tipe = '';
-    $nilai = [];
+    $kondisi = ['s.sekolah_id = ?'];
+    $tipe = 'i';
+    $nilai = [padi_sekolah_id()];
     if ($filterKelas !== '') {
         $kondisi[] = 's.kelas = ?';
         $tipe .= 's';
@@ -65,8 +65,12 @@ if ($conn) {
     }
 
     // Daftar kelas untuk filter
-    $qKelas = $conn->query("SELECT DISTINCT kelas FROM sesi ORDER BY kelas");
+    $stmtKelas = $conn->prepare("SELECT DISTINCT kelas FROM sesi WHERE sekolah_id = ? ORDER BY kelas");
+    $stmtKelas->bind_param('i', padi_sekolah_id());
+    $stmtKelas->execute();
+    $qKelas = $stmtKelas->get_result();
     if ($qKelas) while ($r = $qKelas->fetch_assoc()) $kelasAda[] = (string)$r['kelas'];
+    $stmtKelas->close();
 }
 sort($kelasAda);
 

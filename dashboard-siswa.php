@@ -42,9 +42,10 @@ $kelasSiswa = (string)($_SESSION['siswa_kelas'] ?? '');
 if ($conn) {
     padi_pastikan_skema_auth($conn);
     padi_pastikan_tabel_jadwal($conn);
-    $stmt = $conn->prepare("SELECT jam_mulai, jam_selesai, materi, catatan FROM jadwal WHERE kelas = ? AND hari = ? ORDER BY jam_mulai");
+    $sidSiswa = function_exists('padi_sekolah_id') ? padi_sekolah_id() : 1;
+    $stmt = $conn->prepare("SELECT jam_mulai, jam_selesai, materi, catatan FROM jadwal WHERE sekolah_id = ? AND kelas = ? AND hari = ? ORDER BY jam_mulai");
     if ($stmt) {
-        $stmt->bind_param('si', $kelasSiswa, $hariIni);
+        $stmt->bind_param('isi', $sidSiswa, $kelasSiswa, $hariIni);
         $stmt->execute();
         $resJadwal = $stmt->get_result();
         while ($resJadwal && ($rj = $resJadwal->fetch_assoc())) $jadwalHariIni[] = $rj;

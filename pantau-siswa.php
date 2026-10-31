@@ -19,6 +19,7 @@ if (!isset($pilihanAsesmen[$filterAsesmen])) $filterAsesmen = '';
 $daftar = [];
 $ringkas = ['terhubung' => 0, 'kognitif' => 0, 'video' => 0];
 if ($conn) {
+    $sidPantau = padi_sekolah_id();
     $sql = "SELECT p.id, p.nama, p.created_at,
                    s.id AS sesi_id, s.token, s.kelas, s.materi,
                    (SELECT nilai_total FROM penilaian_kognitif WHERE siswa_id = p.id ORDER BY id DESC LIMIT 1) AS kog,
@@ -28,9 +29,12 @@ if ($conn) {
                    (SELECT nilai_rubrik FROM penilaian_rekan WHERE penilai_id = p.id ORDER BY id DESC LIMIT 1) AS rekan
             FROM siswa p
             JOIN sesi s ON s.id = p.sesi_id
-            WHERE s.status = 'aktif'
+            WHERE s.sekolah_id = ? AND s.status = 'aktif'
             ORDER BY s.kelas ASC, p.nama ASC";
-    $res = $conn->query($sql);
+    $stmtPantau = $conn->prepare($sql);
+    $stmtPantau->bind_param('i', $sidPantau);
+    $stmtPantau->execute();
+    $res = $stmtPantau->get_result();
     if ($res) {
         while ($row = $res->fetch_assoc()) {
             $row['video'] = trim((string)$row['video']);

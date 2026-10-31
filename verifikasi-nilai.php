@@ -37,21 +37,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'simpa
 
 $daftar = [];
 if ($conn) {
+    $sidVerifikasi = padi_sekolah_id();
     $q = "SELECT s.id, s.nama,
                  a.nilai_rubrik AS afektif_siswa, a.nilai_guru AS afektif_guru,
                  p.nilai_rubrik AS psikomotor_siswa, p.nilai_guru AS psikomotor_guru,
                  r.nilai_rubrik AS rekan_siswa, r.nilai_guru AS rekan_guru,
                  COALESCE(a.catatan_guru, p.catatan_guru, r.catatan_guru) AS catatan
           FROM siswa s
+          JOIN sesi se ON se.id = s.sesi_id AND se.sekolah_id = ?
           LEFT JOIN penilaian_afektif a ON a.siswa_id = s.id
           LEFT JOIN penilaian_psikomotor p ON p.siswa_id = s.id
           LEFT JOIN penilaian_rekan r ON r.penilai_id = s.id
           ORDER BY s.nama ASC
           LIMIT 200";
-    $res = $conn->query($q);
+    $stmtV = $conn->prepare($q);
+    $stmtV->bind_param('i', $sidVerifikasi);
+    $stmtV->execute();
+    $res = $stmtV->get_result();
     if ($res) {
         while ($row = $res->fetch_assoc()) $daftar[] = $row;
     }
+    $stmtV->close();
 }
 ?>
 <!DOCTYPE html>

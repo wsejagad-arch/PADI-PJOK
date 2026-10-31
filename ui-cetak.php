@@ -5,9 +5,37 @@
 //       padi_cetak_ttd();
 // Identitas sekolah diambil dari .env (SEKOLAH_*), guru dari sesi login.
 
+/**
+ * Identitas cetak: utamakan data sekolah aktif di database (multi-tenant),
+ * lalu fallback ke .env (SEKOLAH_*).
+ */
 if (!function_exists('padi_cetak_env')) {
 function padi_cetak_env($kunci, $bawaan = '')
 {
+    static $dariSekolah = null;
+    if ($dariSekolah === null) {
+        $dariSekolah = [];
+        if (function_exists('padi_sekolah')) {
+            $row = padi_sekolah();
+            $peta = [
+                'SEKOLAH_NAMA'          => 'nama',
+                'SEKOLAH_INSTANSI'      => 'instansi',
+                'SEKOLAH_ALAMAT'        => 'alamat',
+                'SEKOLAH_NPSN'          => 'npsn',
+                'SEKOLAH_KOTA'          => 'kota',
+                'TAHUN_PELAJARAN'       => 'tahun_pelajaran',
+                'KEPALA_SEKOLAH'        => 'kepala_sekolah',
+                'KEPALA_SEKOLAH_NIP'    => 'kepala_nip',
+                'GURU_NIP'              => 'guru_nip',
+            ];
+            foreach ($peta as $env => $kolom) {
+                $isi = trim((string)($row[$kolom] ?? ''));
+                if ($isi !== '') $dariSekolah[$env] = $isi;
+            }
+        }
+    }
+    if (isset($dariSekolah[$kunci])) return $dariSekolah[$kunci];
+
     $nilai = getenv($kunci);
     if ($nilai === false || trim((string)$nilai) === '') {
         $nilai = $_ENV[$kunci] ?? ($_SERVER[$kunci] ?? '');

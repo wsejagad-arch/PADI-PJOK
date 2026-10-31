@@ -27,8 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $kelas = strtoupper(trim((string)($_POST['kelas'] ?? '')));
 
         if ($nama !== '' && $kelas !== '') {
-            $stmt = $conn->prepare("INSERT INTO master_siswa (nama, nis, kelas) VALUES (?, ?, ?)");
-            $stmt->bind_param("sss", $nama, $nis, $kelas);
+            $sid = padi_sekolah_id();
+            $stmt = $conn->prepare("INSERT INTO master_siswa (sekolah_id, nama, nis, kelas) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("isss", $sid, $nama, $nis, $kelas);
             $stmt->execute();
             $stmt->close();
         }
@@ -40,8 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'add_kelas') {
         $nama_kelas = strtoupper(trim((string)($_POST['nama_kelas'] ?? '')));
         if ($nama_kelas !== '') {
-            $stmt = $conn->prepare("INSERT IGNORE INTO master_kelas (nama_kelas) VALUES (?)");
-            $stmt->bind_param("s", $nama_kelas);
+            $sid = padi_sekolah_id();
+            $stmt = $conn->prepare("INSERT IGNORE INTO master_kelas (sekolah_id, nama_kelas) VALUES (?, ?)");
+            $stmt->bind_param("is", $sid, $nama_kelas);
             $stmt->execute();
             $stmt->close();
         }
@@ -53,8 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'delete_siswa' && isset($_POST['id'])) {
         $id = (int)$_POST['id'];
         $kelas = (string)($_POST['kelas'] ?? '');
-        $stmt = $conn->prepare("DELETE FROM master_siswa WHERE id = ?");
-        $stmt->bind_param("i", $id);
+        $stmt = $conn->prepare("DELETE FROM master_siswa WHERE id = ? AND sekolah_id = ?");
+        $stmt->bind_param("ii", $id, padi_sekolah_id());
         $stmt->execute();
         $stmt->close();
         header("Location: data-siswa.php?kelas=" . urlencode($kelas));
@@ -64,13 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     // 4. Hapus Kelas (beserta siswanya)
     if ($action === 'delete_kelas' && isset($_POST['kelas'])) {
         $kelas = (string)$_POST['kelas'];
-        $stmt = $conn->prepare("DELETE FROM master_kelas WHERE nama_kelas = ?");
-        $stmt->bind_param("s", $kelas);
+        $sid = padi_sekolah_id();
+        $stmt = $conn->prepare("DELETE FROM master_kelas WHERE nama_kelas = ? AND sekolah_id = ?");
+        $stmt->bind_param("si", $kelas, $sid);
         $stmt->execute();
         $stmt->close();
 
-        $stmt = $conn->prepare("DELETE FROM master_siswa WHERE kelas = ?");
-        $stmt->bind_param("s", $kelas);
+        $stmt = $conn->prepare("DELETE FROM master_siswa WHERE kelas = ? AND sekolah_id = ?");
+        $stmt->bind_param("si", $kelas, $sid);
         $stmt->execute();
         $stmt->close();
 
@@ -93,13 +96,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             padi_data_siswa_kembali($kelasLama, 'Gagal menyimpan: kelas wajib dipilih.');
         }
 
-        $stmt = $conn->prepare("UPDATE master_siswa SET nama = ?, nis = ?, kelas = ? WHERE id = ?");
-        $stmt->bind_param("sssi", $nama, $nis, $kelasBaru, $id);
+        $stmt = $conn->prepare("UPDATE master_siswa SET nama = ?, nis = ?, kelas = ? WHERE id = ? AND sekolah_id = ?");
+        $stmt->bind_param("sssii", $nama, $nis, $kelasBaru, $id, padi_sekolah_id());
         $stmt->execute();
         $stmt->close();
 
-        $stmt = $conn->prepare("INSERT IGNORE INTO master_kelas (nama_kelas) VALUES (?)");
-        $stmt->bind_param("s", $kelasBaru);
+        $stmt = $conn->prepare("INSERT IGNORE INTO master_kelas (sekolah_id, nama_kelas) VALUES (?, ?)");
+        $stmt->bind_param("is", padi_sekolah_id(), $kelasBaru);
         $stmt->execute();
         $stmt->close();
 
@@ -111,8 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $id    = (int)$_POST['id'];
         $kelas = strtoupper(trim((string)($_POST['kelas'] ?? '')));
 
-        $stmt = $conn->prepare("UPDATE master_siswa SET password = NULL WHERE id = ?");
-        $stmt->bind_param("i", $id);
+        $stmt = $conn->prepare("UPDATE master_siswa SET password = NULL WHERE id = ? AND sekolah_id = ?");
+        $stmt->bind_param("ii", $id, padi_sekolah_id());
         $stmt->execute();
         $stmt->close();
 
@@ -126,18 +129,38 @@ $cari = trim((string)($_GET['q'] ?? ''));
 $info = trim((string)($_GET['info'] ?? ''));
 
 // --- DAFTAR KELAS ---
+$sid = padi_sekolah_id();
 $kelas_list = [];
-$res = $conn->query("SELECT nama_kelas FROM master_kelas ORDER BY nama_kelas ASC");
+$stmt = $conn->prepare("SELECT nama_kelas FROM master_kelas WHERE sekolah_id = ? ORDER BY nama_kelas ASC");
+$stmt->bind_param("i", $sid);
+$stmt->execute();
+$res = $stmt->get_result();
 if ($res && $res->num_rows > 0) {
     while ($row = $res->fetch_assoc()) $kelas_list[] = (string)$row['nama_kelas'];
 }
+$stmt->close();
 if (!$kelas_list) {
-    $res = $conn->query("SELECT DISTINCT kelas FROM master_siswa WHERE kelas <> '' ORDER BY kelas ASC");
+    $stmt = $conn->prepare("SELECT DISTINCT kelas FROM master_siswa WHERE sekolah_id = ? AND kelas <> '' ORDER BY kelas ASC");
+    $stmt->bind_param("i", $sid);
+    $stmt->execute();
+    $res = $stmt->get_result();
     if ($res) {
+        $daftar = [];
         while ($row = $res->fetch_assoc()) {
             $kelas_list[] = (string)$row['kelas'];
-            $conn->query("INSERT IGNORE INTO master_kelas (nama_kelas) VALUES ('" . $conn->real_escape_string($row['kelas']) . "')");
+            $daftar[] = (string)$row['kelas'];
         }
+        $stmt->close();
+        foreach ($daftar as $namaKelas) {
+            $ins = $conn->prepare("INSERT IGNORE INTO master_kelas (sekolah_id, nama_kelas) VALUES (?, ?)");
+            if ($ins) {
+                $ins->bind_param("is", $sid, $namaKelas);
+                $ins->execute();
+                $ins->close();
+            }
+        }
+    } else {
+        $stmt->close();
     }
 }
 $kelas_list = array_values(array_unique(array_filter($kelas_list)));
@@ -146,9 +169,9 @@ $kelas_list = array_values(array_unique(array_filter($kelas_list)));
 $perKelas = [];
 $totalSiswa = 0;
 $sql = "SELECT id, nama, nis, kelas FROM master_siswa";
-$kondisi = [];
-$tipe = '';
-$nilai = [];
+$kondisi = ['sekolah_id = ?'];
+$tipe = 'i';
+$nilai = [$sid];
 if ($filterKelas !== '') {
     $kondisi[] = 'kelas = ?';
     $tipe .= 's';

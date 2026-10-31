@@ -74,6 +74,53 @@ APP_ENV=production
 
 `.env` **tidak** ikut ter-commit (lihat `.gitignore`).
 
+## Multi-tenant (beberapa sekolah dalam satu instalasi)
+
+Satu database, setiap tabel inti punya kolom `sekolah_id`, dan sekolah aktif ditentukan
+berdasarkan (urutan prioritas):
+
+1. `?sekolah=slug` — hanya di lokal/dev atau untuk super-admin (tombol **Masuk** di halaman kelola sekolah)
+2. sekolah milik akun yang login (`guru.sekolah_id` / `master_siswa.sekolah_id`)
+3. subdomain host: `sman1.<BASE_DOMAIN>` → slug `sman1`
+4. `TENANT_DEFAULT` → sekolah aktif pertama
+
+Tabel yang terisolasi: `guru`, `master_siswa`, `master_kelas`, `sesi`, `jadwal`
+(penilaian mengikuti siswa/sesi sehingga otomatis ikut terisolasi). Kunci unik kelas &
+jadwal menyertakan `sekolah_id` agar nama kelas sama boleh dipakai lintas sekolah.
+
+- Skema disiapkan otomatis oleh [tenant.php](tenant.php) (dipanggil dari `koneksi.php`).
+- **Kelola Sekolah** ([sekolah-admin.php](sekolah-admin.php)) untuk menambah/mengubah sekolah,
+  mengisi identitas kop (instansi, alamat, NPSN, kepala sekolah + NIP), aktif/nonaktif, dan
+  berpindah konteks sekolah. Hanya untuk guru dengan `guru.is_super = 1`
+  (akun guru terlama otomatis menjadi super-admin).
+- Identitas kop cetak kini diambil dari data sekolah aktif, `.env` hanya fallback.
+
+```env
+BASE_DOMAIN=padipjok.pintarhub.com
+TENANT_DEFAULT=utama
+```
+
+## Login guru dengan akun Belajar.id
+
+Login memakai Google OAuth 2.0 / OpenID Connect (`oauth.php`, `oauth-belajar.php`,
+`oauth-callback.php`). Tombol **Masuk dengan Belajar.id** muncul di [login-guru.php](login-guru.php) bila
+kredensial sudah diisi; bila belum, tombol tampil nonaktif dengan petunjuk.
+
+```env
+GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=xxxx
+GOOGLE_REDIRECT_URI=            # opsional, default https://<host>/oauth-callback.php
+BELAJAR_ID_DOMAIN=belajar.id    # boleh beberapa, pisah koma, dukung *.sch.id
+BELAJAR_ID_AUTO_DAFTAR=1        # 1 = akun guru otomatis dibuat saat login pertama
+BELAJAR_ID_HD=                  # opsional, batasi consent ke satu domain
+```
+
+Langkah di Google Cloud Console: buat **OAuth client ID** tipe *Web application*, daftarkan
+*Authorized redirect URI* `https://<domain>/oauth-callback.php` (tambahkan juga versi
+subdomain bila memakai multi-tenant), lalu salin Client ID/Secret ke `.env` server.
+Akun dicari berdasarkan `guru.google_sub` atau `guru.email`; guru tanpa akun dibuatkan
+otomatis di sekolah aktif dengan status `aktif` dan `is_super = 0`.
+
 ## Akun guru pertama
 
 Tidak ada password default di kode. Saat tabel `guru` masih kosong, aplikasi membuat
@@ -105,7 +152,12 @@ rekap-penilaian*.php   # rekap nilai
 verifikasi-nilai.php   # guru memverifikasi/mengoreksi nilai rubrik siswa
 perkembangan-semester.php
 laporan.php            # laporan & cetak
-koneksi.php            # koneksi DB (baca .env)
+tenant.php             # multi-tenant: tabel sekolah, resolusi sekolah aktif
+sekolah-admin.php      # kelola sekolah (super-admin)
+oauth.php              # helper login Belajar.id (Google OAuth)
+oauth-belajar.php      # mulai login Belajar.id
+oauth-callback.php     # callback Google → sesi guru
+koneksi.php            # koneksi DB (baca .env) + migrasi tenant
 auth.php               # helper autentikasi + migrasi tabel
 setup_db.php           # pembuat skema database (akses via /instal/<TOKEN>)
 perbaikan-keamanan-ct102.sh  # patch .env + nginx + token tunnel di server
