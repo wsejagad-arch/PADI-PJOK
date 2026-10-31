@@ -77,7 +77,8 @@ if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $row = padi_sekolah_cari($conn, $id);
             if ($row) {
                 padi_sekolah_aktifkan($id);
-                header('Location: ' . padi_sekolah_url($row['slug'], 'dashboard-guru.php'));
+                // Redirect relatif + slug agar tetap bekerja tanpa DNS wildcard subdomain.
+                header('Location: dashboard-guru.php?sekolah=' . urlencode((string)$row['slug']));
                 exit;
             }
         }
