@@ -71,10 +71,32 @@
   }
 
   setMode();
+  pastikanMenuJadwal();
   window.addEventListener('resize', setMode, { passive: true });
   window.addEventListener('DOMContentLoaded', function () {
     setMode();
+    pastikanMenuJadwal();
   });
+
+  // Sisipkan menu "Jadwal" pada navigasi guru (semua halaman guru).
+  function pastikanMenuJadwal() {
+    var nav = document.querySelector('nav.bottom-nav, nav.nav-bottom');
+    if (!nav) return;
+    var profil = nav.querySelector('a[href*="profil-guru.php"]');
+    if (!profil) return; // bukan halaman guru
+    if (nav.querySelector('a[href*="jadwal-guru.php"]')) return;
+
+    var basis = window.PADI_BASE || '';
+    var aktif = /(^|\/)jadwal-guru\.php$/.test(window.location.pathname);
+    var tautan = document.createElement('a');
+    tautan.href = basis + 'jadwal-guru.php';
+    tautan.className = 'nav-item' + (aktif ? ' active' : '');
+    tautan.id = 'nav-jadwal';
+    tautan.setAttribute('aria-label', 'Jadwal');
+    if (aktif) tautan.setAttribute('aria-current', 'page');
+    tautan.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path stroke-linecap="round" d="M8 3v4M16 3v4M3 11h18"/></svg><span>Jadwal</span>';
+    nav.insertBefore(tautan, profil);
+  }
 
   // PWA Service Worker
   if ('serviceWorker' in navigator) {

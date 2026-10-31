@@ -133,10 +133,19 @@ Lapisan tema di akhir `aset/app.css` (dimuat setelah CSS inline tiap halaman):
 Berkas: `aset/app.css`, `aset/app.js`, `ui-head.php`.
 
 ### PWA (installable)
-
 `aset/manifest.webmanifest` + `sw.js` (cache shell + halaman offline), ikon 192/512/maskable.
 Tombol **Pasang aplikasi** muncul otomatis saat browser mendukung (`beforeinstallprompt`).
 Untuk merilis aset baru, cukup ubah berkasnya — `?v=` diambil dari `filemtime`; naikkan `CACHE` di `sw.js` bila perlu memaksa update.
+
+### Jadwal pelajaran & pantau siswa
+
+- **Menu Jadwal** (guru, `jadwal-guru.php`): tambah satu jadwal atau **impor massal** dari CSV
+  `kelas,hari,jam_mulai,jam_selesai,materi,catatan` (unduh template di halaman yang sama; unggah berkas atau tempel teks).
+  Baris dengan `kelas + hari + jam_mulai` yang sama akan diperbarui, bukan digandakan.
+- Tabel `jadwal` dibuat otomatis lewat `padi_pastikan_tabel_jadwal()` (aman untuk sesi lama, tanpa migrasi manual).
+- **Dashboard siswa** menampilkan kartu “Jadwal Hari Ini” sesuai kelas siswa (`hari` = 1 Senin … 7 Minggu).
+- **Pantau siswa** (`pantau-siswa.php`) berupa tabel dengan filter **kelas**, **nama**, dan **status tugas/asesmen**
+  (kognitif, video praktik, psikomotor, afektif, penilaian rekan — sudah/belum), plus ringkasan jumlah.
 
 ## Keamanan
 

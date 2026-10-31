@@ -309,6 +309,20 @@ function pastikanTabelAuth($conn)
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
+    // 2b. Jadwal pelajaran per kelas (dipakai guru & dashboard siswa)
+    $conn->query("CREATE TABLE IF NOT EXISTS jadwal (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        kelas VARCHAR(50) NOT NULL,
+        hari TINYINT NOT NULL,
+        jam_mulai TIME NOT NULL,
+        jam_selesai TIME NOT NULL,
+        materi VARCHAR(150) NOT NULL,
+        catatan VARCHAR(255) NULL DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_jadwal (kelas, hari, jam_mulai),
+        KEY idx_jadwal_kelas (kelas, hari)
+    )");
+
     // 3. Akun guru bawaan: password TIDAK di-hardcode.
     //    Sumber: env GURU_SEED_PASS. Bila kosong, dibangkitkan acak dan
     //    dicatat SEKALI ke berkas di luar document root.
@@ -461,6 +475,34 @@ function padi_pastikan_skema_auth($conn)
     if (!empty($_SESSION['padi_skema_auth'])) return;
     pastikanTabelAuth($conn);
     $_SESSION['padi_skema_auth'] = 1;
+}
+}
+
+/**
+ * Pastikan tabel `jadwal` ada. Dipisah dari migrasi auth karena sesi lama
+ * (sebelum tabel dibuat) tidak menjalankan migrasi lagi.
+ */
+if (!function_exists('padi_pastikan_tabel_jadwal')) {
+function padi_pastikan_tabel_jadwal($conn)
+{
+    static $selesai = false;
+    if ($selesai || !$conn || !empty($conn->connect_errno)) return;
+    $selesai = true;
+    padi_mulai_sesi();
+    if (!empty($_SESSION['padi_skema_jadwal'])) return;
+    $ok = $conn->query("CREATE TABLE IF NOT EXISTS jadwal (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        kelas VARCHAR(50) NOT NULL,
+        hari TINYINT NOT NULL,
+        jam_mulai TIME NOT NULL,
+        jam_selesai TIME NOT NULL,
+        materi VARCHAR(150) NOT NULL,
+        catatan VARCHAR(255) NULL DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_jadwal (kelas, hari, jam_mulai),
+        KEY idx_jadwal_kelas (kelas, hari)
+    )");
+    if ($ok) $_SESSION['padi_skema_jadwal'] = 1;
 }
 }
 

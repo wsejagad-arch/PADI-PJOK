@@ -20,6 +20,24 @@ if ($conn) {
     $q = $conn->query("SELECT nilai_rubrik FROM penilaian_afektif WHERE siswa_id = " . intval($_SESSION['siswa_id']));
     if ($q && $r = $q->fetch_assoc()) $afektif = $r['nilai_rubrik'];
 }
+
+// Jadwal pelajaran hari ini untuk kelas siswa (diisi guru lewat menu Jadwal).
+$jadwalHariIni = [];
+$namaHari = ['1' => 'Senin', '2' => 'Selasa', '3' => 'Rabu', '4' => 'Kamis', '5' => 'Jumat', '6' => 'Sabtu', '7' => 'Minggu'];
+$hariIni = (int)date('N');
+$kelasSiswa = (string)($_SESSION['siswa_kelas'] ?? '');
+if ($conn) {
+    padi_pastikan_skema_auth($conn);
+    padi_pastikan_tabel_jadwal($conn);
+    $stmt = $conn->prepare("SELECT jam_mulai, jam_selesai, materi, catatan FROM jadwal WHERE kelas = ? AND hari = ? ORDER BY jam_mulai");
+    if ($stmt) {
+        $stmt->bind_param('si', $kelasSiswa, $hariIni);
+        $stmt->execute();
+        $resJadwal = $stmt->get_result();
+        while ($resJadwal && ($rj = $resJadwal->fetch_assoc())) $jadwalHariIni[] = $rj;
+        $stmt->close();
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -144,6 +162,16 @@ if ($conn) {
     .toast.show{transform:translateX(-50%) translateY(0)}
     @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
     .anim{animation:fadeUp .4s both}
+
+    /* Jadwal hari ini */
+    .jadwal-list{display:flex;flex-direction:column;gap:10px}
+    .jadwal-item{display:flex;gap:12px;align-items:flex-start;background:var(--white);border-radius:var(--radius-sm);padding:12px 14px}
+    .jadwal-jam{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:6px 8px;border-radius:10px;background:var(--blue-light);color:var(--blue);font-size:12.5px;font-weight:800;line-height:1.3}
+    .jadwal-jam span{font-size:10.5px;font-weight:600;color:var(--text-3)}
+    .jadwal-info{flex:1;min-width:0}
+    .jadwal-materi{font-size:13px;font-weight:700;color:var(--text)}
+    .jadwal-catatan{font-size:11px;color:var(--text-3);margin-top:3px}
+    .jadwal-kosong{background:var(--white);border-radius:var(--radius-sm);padding:16px;text-align:center;font-size:12px;color:var(--text-3)}
   </style>
 <?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
@@ -200,6 +228,34 @@ if ($conn) {
       </span>
     </div>
   </a>
+
+  <!-- Jadwal Hari Ini -->
+  <div class="anim">
+    <div class="section-hdr" style="margin-bottom:12px">
+      <h2>Jadwal Hari Ini</h2>
+      <span class="lihat-semua" style="pointer-events:none"><?= htmlspecialchars($namaHari[(string)$hariIni] ?? '-') ?></span>
+    </div>
+    <?php if (!$jadwalHariIni): ?>
+      <div class="jadwal-kosong">Belum ada jadwal PJOK untuk kelas <?= htmlspecialchars($kelasSiswa !== '' ? $kelasSiswa : '-') ?> hari ini.</div>
+    <?php else: ?>
+      <div class="jadwal-list">
+        <?php foreach ($jadwalHariIni as $jd): ?>
+          <div class="jadwal-item">
+            <div class="jadwal-jam">
+              <?= htmlspecialchars(substr((string)$jd['jam_mulai'], 0, 5), ENT_QUOTES, 'UTF-8') ?>
+              <span><?= htmlspecialchars(substr((string)$jd['jam_selesai'], 0, 5), ENT_QUOTES, 'UTF-8') ?></span>
+            </div>
+            <div class="jadwal-info">
+              <p class="jadwal-materi"><?= htmlspecialchars($jd['materi'], ENT_QUOTES, 'UTF-8') ?></p>
+              <?php if (trim((string)$jd['catatan']) !== ''): ?>
+                <p class="jadwal-catatan"><?= htmlspecialchars($jd['catatan'], ENT_QUOTES, 'UTF-8') ?></p>
+              <?php endif; ?>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+  </div>
 
   <!-- Nilai Terbaru -->
   <div class="anim">

@@ -794,6 +794,15 @@ if($conn) {
         </div>
         <span class="action-label">Data Siswa</span>
       </a>
+      <a href="jadwal-guru.php" class="action-btn" id="btn-jadwal">
+        <div class="action-icon teal" aria-hidden="true" style="background: var(--blue-light); color: var(--blue);">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 3v4M16 3v4M3 11h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="action-label">Jadwal</span>
+      </a>
     </div>
   </div>
 
