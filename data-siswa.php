@@ -189,6 +189,7 @@ if ($active_kelas) {
     .modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
     .modal p { font-size: 12px; color: var(--text-3); margin-bottom: 16px; }
   </style>
+<?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
   <header class="topbar">

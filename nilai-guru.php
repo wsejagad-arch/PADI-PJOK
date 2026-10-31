@@ -38,6 +38,7 @@ require 'koneksi.php';
     .nav-item.active svg { stroke-width: 2.5; transform: translateY(-2px); }
     .nav-item.active span { font-weight: 700; }
   </style>
+<?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
   <header class="topbar">

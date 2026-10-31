@@ -53,6 +53,7 @@ $stmt->close();
         body { padding: 0; }
     }
   </style>
+<?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
 

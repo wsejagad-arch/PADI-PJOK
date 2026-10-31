@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once 'auth.php';
 wajibLoginGuru();
 require 'koneksi.php';
@@ -29,6 +29,7 @@ require 'koneksi.php';
     .card p { font-size: 13px; color: var(--text-3); line-height: 1.5; margin-bottom: 20px; }
     .btn-primary { background: var(--teal); color: var(--white); border: none; padding: 12px 20px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; width: 100%; font-size: 14px; }
   </style>
+<?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
   <header class="topbar">

@@ -82,6 +82,7 @@ if ($conn) {
     .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;background:#DCFCE7;color:var(--green);margin-left:6px}
     .kosong{text-align:center;color:var(--text-3);font-size:13px;padding:24px}
   </style>
+<?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
   <header class="topbar">

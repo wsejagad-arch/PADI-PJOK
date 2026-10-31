@@ -97,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .back-link{display:block;text-align:center;margin-top:18px;font-size:13px;font-weight:600;color:var(--blue);text-decoration:none}
     .back-link:hover{text-decoration:underline}
   </style>
+<?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
 

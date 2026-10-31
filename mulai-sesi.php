@@ -60,6 +60,7 @@ if ($result && $result->num_rows > 0) {
     .empty-state h2 { font-size: 18px; color: var(--text); margin-bottom: 8px; font-weight: 700; }
     .empty-state p { font-size: 13px; color: var(--text-3); margin-bottom: 24px; line-height: 1.5; }
   </style>
+<?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
   <header class="topbar">

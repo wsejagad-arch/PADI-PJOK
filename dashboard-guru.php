@@ -614,6 +614,7 @@ if($conn) {
       .stat-value { font-size: 18px; }
     }
   </style>
+<?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
 

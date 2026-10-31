@@ -137,6 +137,7 @@ if (isset($_GET['token']) && !empty($_SESSION['siswa_id'])) {
     .btn-modal.ghost{background:var(--blue-light);color:var(--blue)}
     .btn-modal.ghost:hover{background:var(--blue-mid)}
   </style>
+<?php require_once __DIR__ . '/ui-head.php'; padi_ui_head(); ?>
 </head>
 <body>
 
