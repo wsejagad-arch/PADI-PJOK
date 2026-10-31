@@ -44,7 +44,8 @@ jobs:
           done
 
       - name: Validasi manifest PWA
-        run: php -r '$m=json_decode(file_get_contents("aset/manifest.webmanifest"), true); if (!$m) { fwrite(STDERR, "manifest tidak valid\n"); exit(1); } echo "manifest OK: ", $m["name"], "\n";'
+        run: |
+          php -r '$m = json_decode(file_get_contents("aset/manifest.webmanifest"), true); if (!$m) { fwrite(STDERR, "manifest tidak valid\n"); exit(1); } echo "manifest OK: " . $m["name"] . "\n";'
 
       - name: Tolak token/kunci yang ikut ter-commit
         run: |
