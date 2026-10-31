@@ -29,7 +29,9 @@ for V in "${VHOSTS[@]}"; do
         continue
     fi
 
-    cp -a "$V" "${V}.bak.$(date +%Y%m%d%H%M%S)"
+    TARGET="$(readlink -f "$V")"
+    LAST_TARGET="$TARGET"
+    cp -a "$TARGET" "${TARGET}.bak.$(date +%Y%m%d%H%M%S)"
     BLOCK="$(cat <<'EON'
     # PADI-SECURITY-BLOCK
     location ~* \.(sql|bak|log|ini|sh|md|txt)$ { deny all; return 404; }
@@ -42,8 +44,8 @@ for V in "${VHOSTS[@]}"; do
         fastcgi_param HTTPS on;
     }
     rewrite ^/instal/?$ /setup_db.php last;
-    rewrite ^/instal/([A-Za-z0-9_-]{20,80})/?$ /setup_db.php?setup_token=$1 last;
-    rewrite ^/sesi/([A-Za-z0-9]{6,12})/?$ /input-token.php?kode=$1 last;
+    rewrite "^/instal/([A-Za-z0-9_-]{20,80})/?$" /setup_db.php?setup_token=$1 last;
+    rewrite "^/sesi/([A-Za-z0-9]{6,12})/?$" /input-token.php?kode=$1 last;
     rewrite ^/masuk/?$ /index.php last;
     rewrite ^/guru/?$ /login-guru.php last;
     rewrite ^/siswa/?$ /login-siswa.php last;
@@ -51,14 +53,20 @@ EON
 )"
     printf '%s\n' "$BLOCK" | sed "s|@@SOCK@@|$SOCK|g" > /tmp/padi_block.conf
     awk 'BEGIN{d=0} !d && /location[[:space:]]+\/[[:space:]]*\{/ { while ((getline l < "/tmp/padi_block.conf") > 0) print l; d=1 } {print}' \
-        "$V" > "${V}.new" && mv "${V}.new" "$V"
+        "$TARGET" > "${TARGET}.new" && mv "${TARGET}.new" "$TARGET"
     rm -f /tmp/padi_block.conf
     echo "   [baru] blok keamanan disisipkan"
 done
 
 echo "== nginx -t =="
 if ! nginx -t; then
-    echo "!! nginx -t GAGAL — pulihkan dari berkas .bak.* terbaru lalu jalankan ulang dengan NGINX_DIR/DOMAIN yang benar."
+    if [ -n "${LAST_TARGET:-}" ]; then
+        LAST_BAK="$(ls -1t "${LAST_TARGET}".bak.* 2>/dev/null | head -1)"
+        if [ -n "$LAST_BAK" ]; then
+            cp -a "$LAST_BAK" "$LAST_TARGET"
+            echo "!! nginx -t GAGAL — konfigurasi dipulihkan dari $LAST_BAK"
+        fi
+    fi
     exit 1
 fi
 systemctl reload nginx && echo "[ok] nginx reload"

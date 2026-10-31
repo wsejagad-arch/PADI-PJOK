@@ -37,6 +37,7 @@ if [ ! -f "$VHOST" ]; then
     VHOST="$(grep -rl "server_name[[:space:]]*$DOMAIN" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)"
 fi
 [ -n "$VHOST" ] && [ -f "$VHOST" ] || { echo "ERROR: vhost nginx untuk $DOMAIN tidak ditemukan"; exit 1; }
+VHOST="$(readlink -f "$VHOST")"   # simlink sites-enabled → berkas asli di sites-available
 
 # ---------------------------------------------------------------- 1. .env
 set_env() {
@@ -85,8 +86,8 @@ else
         fastcgi_param HTTPS on;
     }
     rewrite ^/instal/?$ /setup_db.php last;
-    rewrite ^/instal/([A-Za-z0-9_-]{20,80})/?$ /setup_db.php?setup_token=$1 last;
-    rewrite ^/sesi/([A-Za-z0-9]{6,12})/?$ /input-token.php?kode=$1 last;
+    rewrite "^/instal/([A-Za-z0-9_-]{20,80})/?$" /setup_db.php?setup_token=$1 last;
+    rewrite "^/sesi/([A-Za-z0-9]{6,12})/?$" /input-token.php?kode=$1 last;
     rewrite ^/masuk/?$ /index.php last;
     rewrite ^/guru/?$ /login-guru.php last;
     rewrite ^/siswa/?$ /login-siswa.php last;
@@ -100,7 +101,14 @@ EON
     echo "  [baru] blok keamanan disisipkan"
 fi
 
-nginx -t
+if ! nginx -t; then
+    LAST_BAK="$(ls -1t "${VHOST}".bak.* 2>/dev/null | head -1)"
+    if [ -n "$LAST_BAK" ]; then
+        cp -a "$LAST_BAK" "$VHOST"
+        echo "  !! nginx -t gagal — konfigurasi dipulihkan dari $LAST_BAK"
+    fi
+    exit 1
+fi
 systemctl reload nginx
 echo "  [ok] nginx reload"
 

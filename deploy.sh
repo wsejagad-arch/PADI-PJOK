@@ -224,10 +224,10 @@ server {
         fastcgi_param HTTPS on;
     }
     rewrite ^/instal/?$ /setup_db.php last;
-    rewrite ^/instal/([A-Za-z0-9_-]{20,80})/?$ /setup_db.php?setup_token=\$1 last;
+    rewrite "^/instal/([A-Za-z0-9_-]{20,80})/?$" /setup_db.php?setup_token=\$1 last;
 
     # Alamat samar berbasis token
-    rewrite ^/sesi/([A-Za-z0-9]{6,12})/?$ /input-token.php?kode=\$1 last;
+    rewrite "^/sesi/([A-Za-z0-9]{6,12})/?$" /input-token.php?kode=\$1 last;
     rewrite ^/masuk/?$ /index.php last;
     rewrite ^/guru/?$ /login-guru.php last;
     rewrite ^/siswa/?$ /login-siswa.php last;
