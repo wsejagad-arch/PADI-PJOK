@@ -48,8 +48,10 @@ function padi_cetak_siap($judul, $subjudul = '', $opsi = [])
     echo '<style>@page{size:A4 ' . $orientasi . ';margin:14mm 14mm 16mm}</style>' . "\n";
 
     echo '<div class="cetak-toolbar" role="toolbar" aria-label="Aksi cetak">'
-        . '<button type="button" onclick="window.print()">Cetak / Simpan PDF</button>'
-        . '<span>Gunakan "Simpan sebagai PDF" pada dialog cetak.</span>'
+        . '<button type="button" onclick="window.print()" title="Cetak / Simpan PDF" aria-label="Cetak atau simpan PDF">'
+        . '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V3h12v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 18H4a2 2 0 01-2-2v-4a2 2 0 012-2h16a2 2 0 012 2v4a2 2 0 01-2 2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="6" y="14" width="12" height="7" rx="1" stroke="currentColor" stroke-width="2"/></svg>'
+        . '<span>Cetak / Simpan PDF</span>'
+        . '</button>'
         . '</div>' . "\n";
 
     echo '<header class="cetak-kop">' . "\n";

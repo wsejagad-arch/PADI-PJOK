@@ -1,40 +1,37 @@
 /* cetak.css — kop surat, tabel, dan tanda tangan untuk cetak / simpan PDF.
    Dipakai lewat ui-cetak.php: padi_cetak_siap() + padi_cetak_ttd(). */
 
-/* ---------- Layar: toolbar kecil, kop disembunyikan ---------- */
+/* ---------- Layar: tombol cetak (dipindah app.js ke atas konten) ---------- */
 .cetak-toolbar {
-  position: fixed;
-  right: 16px;
-  bottom: 84px;
-  z-index: 80;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: #ffffff;
-  border: 2px solid #1E293B;
-  border-radius: 12px;
-  box-shadow: none;
-  font-family: inherit;
+  justify-content: flex-end;
+  margin: 12px 0 0;
 }
 
 .cetak-toolbar button {
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 7px 12px;
-  border-radius: 8px;
-  border: 1px solid #1E293B;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border: 2px solid #1E293B;
+  border-radius: 10px;
   background: #1A56DB;
   color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.cetak-toolbar span {
-  font-size: 10.5px;
-  color: #6B7280;
-  max-width: 180px;
-  line-height: 1.25;
+.cetak-toolbar button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.cetak-toolbar button:hover {
+  background: #1240A8;
 }
 
 .cetak-kop,
@@ -43,11 +40,6 @@
 .cetak-ttd,
 .cetak-catatan {
   display: none;
-}
-
-@media (max-width: 1023px) {
-  .cetak-toolbar { bottom: calc(84px + env(safe-area-inset-bottom)); right: 12px; }
-  .cetak-toolbar span { display: none; }
 }
 
 /* ---------- Cetak ---------- */

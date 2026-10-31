@@ -72,11 +72,23 @@
 
   setMode();
   pastikanMenuJadwal();
+  pindahToolbarCetak();
   window.addEventListener('resize', setMode, { passive: true });
   window.addEventListener('DOMContentLoaded', function () {
     setMode();
     pastikanMenuJadwal();
+    pindahToolbarCetak();
   });
+
+  // Tombol "Cetak / Simpan PDF" (ui-cetak.php) dipindah ke atas konten agar tidak menutupi form.
+  function pindahToolbarCetak() {
+    var bar = document.querySelector('.cetak-toolbar');
+    if (!bar || bar.dataset.dipindah === '1') return;
+    var wadah = document.querySelector('main.content, main, .content');
+    if (!wadah) return;
+    wadah.insertBefore(bar, wadah.firstChild);
+    bar.dataset.dipindah = '1';
+  }
 
   // Sisipkan menu "Jadwal" pada navigasi guru (semua halaman guru).
   function pastikanMenuJadwal() {
