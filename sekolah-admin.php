@@ -4,13 +4,18 @@ require_once 'auth.php';
 wajibLoginGuru();
 require 'koneksi.php';
 
-if (empty($_SESSION['guru_is_super'])) {
-    padi_kembali('profil-guru.php', 'Halaman ini hanya untuk super-admin platform.');
+if (empty($_SESSION['guru_is_super']) && empty($_SESSION['guru_is_admin'])) {
+    padi_kembali('profil-guru.php', 'Halaman ini hanya untuk admin sekolah.');
 }
 
 $pesan = '';
 $galat = '';
+$superAdmin = !empty($_SESSION['guru_is_super']);
+$sekolahSendiri = (int)($_SESSION['guru_sekolah_id'] ?? 0);
 $editId = (int)($_GET['edit'] ?? 0);
+if (!$superAdmin) {
+    $editId = $sekolahSendiri;
+}
 $form = ['id' => 0, 'slug' => '', 'nama' => '', 'instansi' => '', 'alamat' => '', 'kota' => '', 'npsn' => '', 'tahun_pelajaran' => '', 'kepala_sekolah' => '', 'kepala_nip' => '', 'status' => 'aktif'];
 
 if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -18,6 +23,13 @@ if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!padi_csrf_valid()) {
         $galat = 'Sesi formulir kedaluwarsa. Muat ulang halaman lalu coba lagi.';
     } elseif ($aksi === 'simpan') {
+        $id = (int)($_POST['id'] ?? 0);
+        if (!$superAdmin && $id !== $sekolahSendiri) {
+            $galat = 'Anda hanya dapat mengubah data sekolah sendiri.';
+            $aksi = 'ditolak';
+        }
+    }
+    if ($aksi === 'simpan' && $galat === '') {
         $id = (int)($_POST['id'] ?? 0);
         foreach (['slug', 'nama', 'instansi', 'alamat', 'kota', 'npsn', 'tahun_pelajaran', 'kepala_sekolah', 'kepala_nip'] as $k) {
             $form[$k] = trim((string)($_POST[$k] ?? ''));
@@ -28,6 +40,8 @@ if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($form['nama'] === '' || mb_strlen($form['nama']) < 3) {
             $galat = 'Nama sekolah minimal 3 karakter.';
+        } elseif (!$superAdmin && $id === 0) {
+            $galat = 'Hanya super-admin platform yang dapat menambah sekolah baru.';
         } elseif ($form['slug'] === '') {
             $galat = 'Slug sekolah tidak valid (huruf/angka/tanda hubung).';
         } else {
@@ -64,7 +78,9 @@ if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($aksi === 'status') {
         $id = (int)($_POST['id'] ?? 0);
         $baru = (($_POST['status'] ?? 'aktif') === 'aktif') ? 'aktif' : 'nonaktif';
-        if ($id > 0) {
+        if (!$superAdmin) {
+            $galat = 'Hanya super-admin yang dapat mengubah status sekolah.';
+        } elseif ($id > 0) {
             $stmt = $conn->prepare("UPDATE sekolah SET status = ? WHERE id = ?");
             $stmt->bind_param('si', $baru, $id);
             $stmt->execute();
@@ -88,14 +104,26 @@ if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $daftar = [];
 if ($conn) {
-    $q = $conn->query("SELECT s.*,
-                              (SELECT COUNT(*) FROM guru g WHERE g.sekolah_id = s.id) AS jumlah_guru,
-                              (SELECT COUNT(*) FROM master_siswa m WHERE m.sekolah_id = s.id) AS jumlah_siswa,
-                              (SELECT COUNT(*) FROM sesi se WHERE se.sekolah_id = s.id) AS jumlah_sesi
-                       FROM sekolah s ORDER BY s.status ASC, s.nama ASC");
+    if ($superAdmin) {
+        $q = $conn->query("SELECT s.*,
+                                  (SELECT COUNT(*) FROM guru g WHERE g.sekolah_id = s.id) AS jumlah_guru,
+                                  (SELECT COUNT(*) FROM master_siswa m WHERE m.sekolah_id = s.id) AS jumlah_siswa,
+                                  (SELECT COUNT(*) FROM sesi se WHERE se.sekolah_id = s.id) AS jumlah_sesi
+                           FROM sekolah s ORDER BY s.status ASC, s.nama ASC");
+    } else {
+        $stmtDaftar = $conn->prepare("SELECT s.*,
+                                  (SELECT COUNT(*) FROM guru g WHERE g.sekolah_id = s.id) AS jumlah_guru,
+                                  (SELECT COUNT(*) FROM master_siswa m WHERE m.sekolah_id = s.id) AS jumlah_siswa,
+                                  (SELECT COUNT(*) FROM sesi se WHERE se.sekolah_id = s.id) AS jumlah_sesi
+                           FROM sekolah s WHERE s.id = ? ORDER BY s.nama ASC");
+        $stmtDaftar->bind_param('i', $sekolahSendiri);
+        $stmtDaftar->execute();
+        $q = $stmtDaftar->get_result();
+    }
     if ($q) {
         while ($row = $q->fetch_assoc()) $daftar[] = $row;
     }
+    if (isset($stmtDaftar)) $stmtDaftar->close();
 }
 
 if ($editId > 0 && !$form['id']) {
@@ -164,8 +192,10 @@ $sedangEdit = (int)$form['id'] > 0;
     <?php if ($galat !== ''): ?><div class="flash galat" role="alert"><?= htmlspecialchars($galat, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
 
     <section class="card">
-      <h1>Multi-tenant: <?= count($daftar) ?> sekolah</h1>
-      <p class="lead">Setiap sekolah punya akun guru, kelas, siswa, sesi, dan jadwal sendiri. Data tidak bercampur antar sekolah.</p>
+      <h1><?= $superAdmin ? 'Multi-tenant: ' . count($daftar) . ' sekolah' : 'Identitas Sekolah' ?></h1>
+      <p class="lead"><?= $superAdmin
+        ? 'Setiap sekolah punya akun guru, kelas, siswa, sesi, dan jadwal sendiri. Data tidak bercampur antar sekolah.'
+        : 'Data ini dipakai untuk kop cetak/PDF sekolah Anda. Perubahan langsung berlaku pada semua dokumen.' ?></p>
     </section>
 
     <section class="card">
@@ -190,19 +220,21 @@ $sedangEdit = (int)$form['id'] > 0;
                 <td>
                   <div class="baris-aksi">
                     <a class="btn btn-kecil" href="sekolah-admin.php?edit=<?= (int)$s['id'] ?>">Edit</a>
-                    <form method="post" action="sekolah-admin.php">
-                      <?= padi_csrf_field() ?>
-                      <input type="hidden" name="aksi" value="status"/>
-                      <input type="hidden" name="id" value="<?= (int)$s['id'] ?>"/>
-                      <input type="hidden" name="status" value="<?= strtolower((string)$s['status']) === 'aktif' ? 'nonaktif' : 'aktif' ?>"/>
-                      <button class="btn btn-kecil" type="submit"><?= strtolower((string)$s['status']) === 'aktif' ? 'Nonaktifkan' : 'Aktifkan' ?></button>
-                    </form>
-                    <form method="post" action="sekolah-admin.php">
-                      <?= padi_csrf_field() ?>
-                      <input type="hidden" name="aksi" value="pilih"/>
-                      <input type="hidden" name="id" value="<?= (int)$s['id'] ?>"/>
-                      <button class="btn btn-kecil" type="submit">Masuk</button>
-                    </form>
+                    <?php if ($superAdmin): ?>
+                      <form method="post" action="sekolah-admin.php">
+                        <?= padi_csrf_field() ?>
+                        <input type="hidden" name="aksi" value="status"/>
+                        <input type="hidden" name="id" value="<?= (int)$s['id'] ?>"/>
+                        <input type="hidden" name="status" value="<?= strtolower((string)$s['status']) === 'aktif' ? 'nonaktif' : 'aktif' ?>"/>
+                        <button class="btn btn-kecil" type="submit"><?= strtolower((string)$s['status']) === 'aktif' ? 'Nonaktifkan' : 'Aktifkan' ?></button>
+                      </form>
+                      <form method="post" action="sekolah-admin.php">
+                        <?= padi_csrf_field() ?>
+                        <input type="hidden" name="aksi" value="pilih"/>
+                        <input type="hidden" name="id" value="<?= (int)$s['id'] ?>"/>
+                        <button class="btn btn-kecil" type="submit">Masuk</button>
+                      </form>
+                    <?php endif; ?>
                   </div>
                 </td>
               </tr>
@@ -213,8 +245,7 @@ $sedangEdit = (int)$form['id'] > 0;
     </section>
 
     <section class="card">
-      <h2><?= $sedangEdit ? 'Edit Sekolah #' . (int)$form['id'] : 'Tambah Sekolah' ?></h2>
-      <form method="post" action="sekolah-admin.php">
+      <h2><?= $sedangEdit ? 'Edit Sekolah #' . (int)$form['id'] : 'Tambah Sekolah' ?></h2>      <form method="post" action="sekolah-admin.php">
         <?= padi_csrf_field() ?>
         <input type="hidden" name="aksi" value="simpan"/>
         <input type="hidden" name="id" value="<?= (int)$form['id'] ?>"/>

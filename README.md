@@ -121,6 +121,20 @@ subdomain bila memakai multi-tenant), lalu salin Client ID/Secret ke `.env` serv
 Akun dicari berdasarkan `guru.google_sub` atau `guru.email`; guru tanpa akun dibuatkan
 otomatis di sekolah aktif dengan status `aktif` dan `is_super = 0`.
 
+## Peran pengguna (guru)
+
+| Peran | Kewenangan |
+|---|---|
+| **super-admin** (`guru.is_super=1`) | Semua sekolah: tambah/ubah/nonaktifkan sekolah, kelola semua akun guru, reset password massal, hapus akun, pantau status server ([admin-server.php](admin-server.php)) |
+| **admin sekolah** (`guru.is_admin=1`) | Sekolahnya sendiri: [admin-pengguna.php](admin-pengguna.php) (tambah/ubah/nonaktifkan/reset/hapus akun guru), ubah identitas kop sekolah ([sekolah-admin.php](sekolah-admin.php)) |
+| **guru** | Data kelas sendiri: siswa, sesi/token, jadwal, penilaian, rekap, laporan |
+
+- Guru yang mendaftar/masuk lewat **Belajar.id** otomatis menjadi **admin sekolah** pada tenant tempat ia masuk.
+- Setiap sekolah selalu punya minimal satu admin (guru pertama otomatis diangkat; admin terakhir tidak bisa dihapus).
+- Reset password: per akun (tombol **Reset**) atau massal (pilih akun → **Reset Terpilih** / **Reset Semua**). Password sementara ditampilkan **sekali** di halaman.
+- Reset password siswa: per siswa (**Reset**) atau seluruh kelas (**Reset Password Kelas**) di [data-siswa.php](data-siswa.php) — siswa masuk lagi memakai token sesi kelas aktif.
+- Halaman legal untuk OAuth: [privasi.php](privasi.php) dan [ketentuan.php](ketentuan.php).
+
 ## Akun guru pertama
 
 Tidak ada password default di kode. Saat tabel `guru` masih kosong, aplikasi membuat
@@ -157,6 +171,10 @@ sekolah-admin.php      # kelola sekolah (super-admin)
 oauth.php              # helper login Belajar.id (Google OAuth)
 oauth-belajar.php      # mulai login Belajar.id
 oauth-callback.php     # callback Google → sesi guru
+admin-pengguna.php     # kelola akun guru (admin sekolah / super-admin)
+admin-server.php       # status server & ringkasan tenant (super-admin)
+privasi.php            # kebijakan privasi (OAuth consent)
+ketentuan.php          # syarat & ketentuan
 koneksi.php            # koneksi DB (baca .env) + migrasi tenant
 auth.php               # helper autentikasi + migrasi tabel
 setup_db.php           # pembuat skema database (akses via /instal/<TOKEN>)

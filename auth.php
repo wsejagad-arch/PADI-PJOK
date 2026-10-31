@@ -897,7 +897,7 @@ function loginGuru($conn, $username, $password)
         return $out;
     }
 
-    $stmt = $conn->prepare("SELECT id, nama, username, password, nip, sekolah_id, is_super, status FROM guru WHERE LOWER(username) = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT id, nama, username, password, nip, sekolah_id, is_super, is_admin, status FROM guru WHERE LOWER(username) = ? LIMIT 1");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -922,6 +922,13 @@ function loginGuru($conn, $username, $password)
     padi_throttle_reset($kunci_throttle);
 
     padi_sesi_guru_isi($g);
+    $upd = $conn->prepare("UPDATE guru SET terakhir_login = NOW() WHERE id = ?");
+    if ($upd) {
+        $gidLogin = (int)$g['id'];
+        $upd->bind_param('i', $gidLogin);
+        $upd->execute();
+        $upd->close();
+    }
 
     $out['success'] = true;
     $out['message'] = 'Login berhasil.';
@@ -941,6 +948,7 @@ function padi_sesi_guru_isi(array $g)
     $_SESSION['guru_username']   = (string)$g['username'];
     $_SESSION['guru_sekolah_id'] = (int)($g['sekolah_id'] ?? 1);
     $_SESSION['guru_is_super']   = (int)($g['is_super'] ?? 0);
+    $_SESSION['guru_is_admin']   = (int)($g['is_admin'] ?? 0);
     if (function_exists('padi_sekolah_aktifkan')) {
         padi_sekolah_aktifkan((int)$_SESSION['guru_sekolah_id']);
     }
@@ -995,7 +1003,7 @@ function loginGuruBelajarId($conn, array $profil)
 
     $sid = function_exists('padi_sekolah_id') ? padi_sekolah_id() : 1;
 
-    $stmt = $conn->prepare("SELECT id, nama, username, nip, sekolah_id, is_super, status
+    $stmt = $conn->prepare("SELECT id, nama, username, nip, sekolah_id, is_super, is_admin, status
                             FROM guru
                             WHERE (google_sub = ? AND google_sub <> '') OR (email IS NOT NULL AND email = ?)
                             ORDER BY (sekolah_id = ?) DESC, id ASC LIMIT 1");
@@ -1029,8 +1037,8 @@ function loginGuruBelajarId($conn, array $profil)
 
         $acak = bin2hex(random_bytes(16));
         $hash = password_hash($acak, PASSWORD_DEFAULT);
-        $ins = $conn->prepare("INSERT INTO guru (nama, username, password, sekolah_id, email, google_sub, is_super, status)
-                               VALUES (?, ?, ?, ?, ?, ?, 0, 'aktif')");
+        $ins = $conn->prepare("INSERT INTO guru (nama, username, password, sekolah_id, email, google_sub, is_super, is_admin, status)
+                               VALUES (?, ?, ?, ?, ?, ?, 0, 1, 'aktif')");
         if (!$ins) {
             $out['message'] = 'Gagal membuat akun guru baru.';
             return $out;
@@ -1040,7 +1048,7 @@ function loginGuruBelajarId($conn, array $profil)
         $baruId = (int)$ins->insert_id;
         $ins->close();
 
-        $stmt = $conn->prepare("SELECT id, nama, username, nip, sekolah_id, is_super, status FROM guru WHERE id = ? LIMIT 1");
+        $stmt = $conn->prepare("SELECT id, nama, username, nip, sekolah_id, is_super, is_admin, status FROM guru WHERE id = ? LIMIT 1");
         $stmt->bind_param('i', $baruId);
         $stmt->execute();
         $g = $stmt->get_result()->fetch_assoc();
@@ -1060,9 +1068,57 @@ function loginGuruBelajarId($conn, array $profil)
     }
 
     padi_sesi_guru_isi($g);
+    $updLogin = $conn->prepare("UPDATE guru SET terakhir_login = NOW() WHERE id = ?");
+    if ($updLogin) {
+        $idLogin = (int)$g['id'];
+        $updLogin->bind_param('i', $idLogin);
+        $updLogin->execute();
+        $updLogin->close();
+    }
     $out['success'] = true;
     $out['message'] = 'Login Belajar.id berhasil.';
     return $out;
+}
+}
+
+/**
+ * Peran akses panel pengelolaan.
+ *  - super-admin : lintas sekolah (kelola semua sekolah, semua akun, status server)
+ *  - admin tenant: mengelola akun & data sekolahnya sendiri
+ */
+if (!function_exists('padi_guru_super')) {
+function padi_guru_super()
+{
+    return !empty($_SESSION['guru_is_super']);
+}
+}
+
+if (!function_exists('padi_guru_admin')) {
+function padi_guru_admin()
+{
+    return padi_guru_super() || !empty($_SESSION['guru_is_admin']);
+}
+}
+
+if (!function_exists('padi_wajib_admin')) {
+/** Halaman pengelolaan akun: super-admin atau admin sekolah sendiri. */
+function padi_wajib_admin()
+{
+    wajibLoginGuru();
+    if (!padi_guru_admin()) {
+        padi_kembali('profil-guru.php', 'Halaman ini khusus admin sekolah. Minta admin sekolah memberi akses.');
+    }
+}
+}
+
+if (!function_exists('padi_wajib_super')) {
+/** Halaman lintas sekolah / server: hanya super-admin. */
+function padi_wajib_super()
+{
+    wajibLoginGuru();
+    if (!padi_guru_super()) {
+        padi_kembali('profil-guru.php', 'Halaman ini khusus super-admin platform.');
+    }
 }
 }
 
@@ -1076,8 +1132,8 @@ function loginGuruBelajarId($conn, array $profil)
     }
 
        // Sesi lama (sebelum multi-tenant) belum menyimpan sekolah_id.
-       if (empty($_SESSION['guru_sekolah_id']) && !empty($GLOBALS['conn'])) {
-           $stmt = $GLOBALS['conn']->prepare("SELECT sekolah_id, is_super FROM guru WHERE id = ? LIMIT 1");
+       if ((empty($_SESSION['guru_sekolah_id']) || !isset($_SESSION['guru_is_admin'])) && !empty($GLOBALS['conn'])) {
+           $stmt = $GLOBALS['conn']->prepare("SELECT sekolah_id, is_super, is_admin FROM guru WHERE id = ? LIMIT 1");
            if ($stmt) {
                $gid = (int)$_SESSION['guru_id'];
                $stmt->bind_param('i', $gid);
@@ -1087,6 +1143,7 @@ function loginGuruBelajarId($conn, array $profil)
                if ($row) {
                    $_SESSION['guru_sekolah_id'] = (int)($row['sekolah_id'] ?? 1);
                    $_SESSION['guru_is_super']   = (int)($row['is_super'] ?? 0);
+                   $_SESSION['guru_is_admin']   = (int)($row['is_admin'] ?? 0);
                }
            }
        }

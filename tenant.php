@@ -107,12 +107,14 @@ function padi_tenant_bootstrap($conn)
         }
     }
 
-    // Kolom akun guru untuk login Belajar.id (Google OAuth).
+    // Kolom akun guru untuk login Belajar.id (Google OAuth) + peran admin tenant.
     foreach ([
         'email'      => "ALTER TABLE guru ADD COLUMN email VARCHAR(150) NULL DEFAULT NULL",
         'google_sub' => "ALTER TABLE guru ADD COLUMN google_sub VARCHAR(64) NULL DEFAULT NULL",
         'is_super'   => "ALTER TABLE guru ADD COLUMN is_super TINYINT(1) NOT NULL DEFAULT 0",
+        'is_admin'   => "ALTER TABLE guru ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0",
         'status'     => "ALTER TABLE guru ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'aktif'",
+        'terakhir_login' => "ALTER TABLE guru ADD COLUMN terakhir_login DATETIME NULL DEFAULT NULL",
     ] as $kolom => $sql) {
         if (!padi_tenant_kolom_ada($conn, 'guru', $kolom)) {
             $conn->query($sql);
@@ -163,6 +165,28 @@ function padi_tenant_bootstrap($conn)
     $adaSuper = ($q && ($r = $q->fetch_assoc())) ? (int)$r['c'] : 0;
     if ($adaSuper === 0) {
         $conn->query("UPDATE guru SET is_super = 1 ORDER BY id ASC LIMIT 1");
+    }
+
+    // Setiap sekolah wajib punya minimal satu admin tenant (guru pertama).
+    $q = $conn->query("SELECT s.id FROM sekolah s
+                       WHERE NOT EXISTS (SELECT 1 FROM guru g WHERE g.sekolah_id = s.id AND g.is_admin = 1)");
+    if ($q) {
+        while ($s = $q->fetch_assoc()) {
+            $sidAwal = (int)$s['id'];
+            $stmt = $conn->prepare("SELECT id FROM guru WHERE sekolah_id = ? ORDER BY id ASC LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param('i', $sidAwal);
+                $stmt->execute();
+                $row = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($row) {
+                    $upd = $conn->prepare("UPDATE guru SET is_admin = 1 WHERE id = ?");
+                    $upd->bind_param('i', $row['id']);
+                    $upd->execute();
+                    $upd->close();
+                }
+            }
+        }
     }
 
     if ($bolehSesi) {

@@ -121,6 +121,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         padi_data_siswa_kembali($kelas, 'Password siswa direset. Siswa masuk memakai token sesi kelas yang sedang aktif lalu membuat password baru.');
     }
+
+    // 7. Reset Password semua siswa satu kelas
+    if ($action === 'reset_password_kelas' && isset($_POST['kelas'])) {
+        $kelas = strtoupper(trim((string)$_POST['kelas']));
+        if ($kelas !== '') {
+            $sidReset = padi_sekolah_id();
+            $stmt = $conn->prepare("UPDATE master_siswa SET password = NULL WHERE kelas = ? AND sekolah_id = ?");
+            $stmt->bind_param("si", $kelas, $sidReset);
+            $stmt->execute();
+            $jumlah = $stmt->affected_rows;
+            $stmt->close();
+            padi_data_siswa_kembali($kelas, 'Password ' . $jumlah . ' siswa kelas ' . $kelas . ' direset. Mereka masuk memakai token sesi kelas yang aktif.');
+        }
+        padi_data_siswa_kembali('', 'Kelas tidak valid.');
+    }
 }
 
 // --- FILTER ---
@@ -361,6 +376,14 @@ $jumlahKelas = count($kelas_list);
           <div class="kelas-aksi">
             <a class="btn btn-ringan" href="export-siswa.php?action=export&kelas=<?= urlencode($kls) ?>">Ekspor</a>
             <a class="btn btn-ringan" href="cetak-siswa.php?kelas=<?= urlencode($kls) ?>" target="_blank" rel="noopener">Cetak</a>
+            <?php if ($rows): ?>
+              <form method="post" action="data-siswa.php" onsubmit="return confirm('Reset password SEMUA siswa kelas <?= htmlspecialchars($kls, ENT_QUOTES) ?>? Mereka harus masuk lagi memakai token sesi kelas aktif.');" style="display:inline">
+                <?= padi_csrf_field() ?>
+                <input type="hidden" name="action" value="reset_password_kelas"/>
+                <input type="hidden" name="kelas" value="<?= htmlspecialchars($kls, ENT_QUOTES) ?>"/>
+                <button type="submit" class="btn btn-ringan">Reset Password Kelas</button>
+              </form>
+            <?php endif; ?>
             <form method="post" action="data-siswa.php" onsubmit="return confirm('Hapus kelas <?= htmlspecialchars($kls, ENT_QUOTES) ?> beserta seluruh siswanya?');" style="display:inline">
               <?= padi_csrf_field() ?>
               <input type="hidden" name="action" value="delete_kelas"/>

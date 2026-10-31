@@ -291,8 +291,13 @@ $identitas = [
         <a class="btn btn-ringan" href="dashboard-guru.php">Dashboard</a>
         <a class="btn btn-ringan" href="rubrik-platform.php">Rubrik Penilaian</a>
         <a class="btn btn-ringan" href="jadwal-guru.php">Jadwal</a>
+        <?php if (function_exists('padi_guru_admin') && padi_guru_admin()): ?>
+          <a class="btn btn-ringan" href="admin-pengguna.php">Kelola Akun Guru</a>
+          <a class="btn btn-ringan" href="sekolah-admin.php">Identitas Sekolah</a>
+        <?php endif; ?>
         <?php if (!empty($_SESSION['guru_is_super'])): ?>
           <a class="btn btn-ringan" href="sekolah-admin.php">Kelola Sekolah</a>
+          <a class="btn btn-ringan" href="admin-server.php">Status Server</a>
         <?php endif; ?>
         <a class="btn btn-keluar" href="logout.php" onclick="return confirm('Keluar dari akun guru ini?');">Keluar</a>
       </div>
