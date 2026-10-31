@@ -126,6 +126,7 @@ Lapisan tema di akhir `aset/app.css` (dimuat setelah CSS inline tiap halaman):
 
 - Latar gradasi cerah biru → mint → kuning (`radial-gradient`, `background-attachment: fixed`).
 - Border flat **2px**: kartu/hero/panel `#94A3B8`, topbar & navigasi `#1E293B`.
+- Header (`.topbar`) selebar area konten di desktop — tanpa sisa ruang kiri/kanan.
 - Tanpa bayangan, tanpa blur/glass; radius seragam 14px (kartu) dan 10px (kontrol).
 - Kontrol (input/select/textarea) bergaris 2px + fokus outline; tombol utama bergaris tegas.
 

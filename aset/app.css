@@ -891,6 +891,16 @@ body {
   }
 }
 
+/* Header menempel penuh: tanpa sisa ruang kiri/kanan di layar lebar */
+@media (min-width: 1024px) {
+  .topbar {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+}
+
 nav.bottom-nav,
 nav.nav-bottom {
   background: #FFFFFF !important;
